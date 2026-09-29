@@ -1,0 +1,49 @@
+# =========================
+# IDE / Editor
+# =========================
+.vscode/
+.idea/
+*.iml
+*.swp
+
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Java / Gradle (Spring Boot, Lambda, CDK)
+# =========================
+.gradle/
+build/
+out/
+bin/
+*.class
+*.jar
+*.war
+
+# =========================
+# AWS CDK
+# =========================
+cdk.out/
+
+# =========================
+# Node.js / Frontend (今後の拡張用)
+# =========================
+node_modules/
+dist/
+
+# =========================
+# Environment Variables / Secrets
+# =========================
+.env
+.env.*
+*secret*.yml
+*secret*.properties
+
+# =========================
+# Docker / Local DB Volume
+# =========================
+docker-data/
+postgres-data/
