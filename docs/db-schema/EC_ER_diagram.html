@@ -1,0 +1,234 @@
+<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ECサイト ER図</title><style>body{margin:0;background:#f1f5f9;color:#17324d;font-family:system-ui,sans-serif;line-height:1.7}main{max-width:1120px;margin:auto;padding:32px}h1{font-size:32px;margin:0}p{color:#475569}nav{display:flex;gap:18px;flex-wrap:wrap;margin:24px 0}a{color:#0369a1}section{background:white;padding:28px;margin:24px 0;border-radius:14px;border:1px solid #dbe3ed}svg{display:block;width:100%;height:auto}h2{font-size:22px;margin:0 0 12px}.legend{font-size:13px}textarea{box-sizing:border-box;width:100%;height:340px;padding:16px;font:13px/1.6 monospace;border:1px solid #94a3b8}summary{cursor:pointer;font-weight:600;margin:16px 0}table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;border-bottom:1px solid #e2e8f0;padding:9px;overflow-wrap:anywhere}th{background:#eaf1f8}.note{border-left:4px solid #0284c7;padding:4px 18px} @media print{body{background:white}section{break-inside:avoid}nav,details{display:none}main{padding:0}}</style><main><h1>ECサイト ER図</h1><p>2026-10-05 · 12テーブル / 144カラム / 14外部キー</p><p><a href="https://docs.google.com/spreadsheets/d/1Z0vjYRgUz5CAtnzGMfQ3tNxWlo-Geof-nJeexnSFCLI/edit">参照：更新済みDB設計書</a></p><nav><a href="#g0">会員・保存情報・カート</a><a href="#g1">カート統合</a><a href="#g2">注文・注文時点の記録</a><a href="#g3">管理者・画像アップロード</a></nav><div class="note">図はDBで定義された外部キーを表示します。操作履歴のactor_id／target_resource_id、Cognito識別子、S3キーのアプリ側参照はFK線に含めません。成立済み注文は業務上1明細以上ですが、FK制約のみの多重度は0..Nです。</div><section id="g0"><h2>会員・保存情報・カート</h2><p class="legend">キー項目を表示。矢印は参照先テーブル → FKを持つテーブル。角括弧は［参照先側 : FK側］の件数。UK*は複合一意制約。</p><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 982" font-family="Arial,sans-serif"><defs><marker id="arrow" markerWidth="7" markerHeight="7" refX="7" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7" fill="none" stroke="#64748b"/></marker></defs><rect width="980" height="982" fill="white"/><path d="M 490.0 162 C 490.0 191.0, 170.0 191.0, 170.0 220" fill="none" stroke="#64748b" stroke-width="1.7" marker-end="url(#arrow)"/><text x="330.0" y="183.0" text-anchor="middle" font-size="11" fill="#334155" stroke="white" stroke-width="4" paint-order="stroke">user_id [1 : 0..1]</text><path d="M 490.0 162 C 490.0 191.0, 810.0 191.0, 810.0 220" fill="none" stroke="#64748b" stroke-width="1.7" marker-end="url(#arrow)"/><text x="650.0" y="183.0" text-anchor="middle" font-size="11" fill="#334155" stroke="white" stroke-width="4" paint-order="stroke">user_id [1 : 0..1]</text><path d="M 490.0 162 C 490.0 286.0, 490.0 286.0, 490.0 410" fill="none" stroke="#64748b" stroke-width="1.7" marker-end="url(#arrow)"/><text x="490.0" y="278.0" text-anchor="middle" font-size="11" fill="#334155" stroke="white" stroke-width="4" paint-order="stroke">user_id [0..1 : 0..1]</text><path d="M 490.0 581 C 490.0 675.5, 490.0 675.5, 490.0 770" fill="none" stroke="#64748b" stroke-width="1.7" marker-end="url(#arrow)"/><text x="490.0" y="667.5" text-anchor="middle" font-size="11" fill="#334155" stroke="white" stroke-width="4" paint-order="stroke">cart_id [1 : 0..N]</text><path d="M 170.0 694 C 170.0 732.0, 490.0 732.0, 490.0 770" fill="none" stroke="#64748b" stroke-width="1.7" marker-end="url(#arrow)"/><text x="330.0" y="724.0" text-anchor="middle" font-size="11" fill="#334155" stroke="white" stroke-width="4" paint-order="stroke">product_id [1 : 0..N]</text><g><rect x="340" y="20" width="300" height="142" rx="8" fill="white" stroke="#94a3b8"/><path d="M348 20 H632 Q640 20 640 28 V56 H340 V28 Q340 20 348 20" fill="#17324d"/><text x="352" y="44" font-size="16" fill="white" font-weight="bold">users</text><text x="350" y="79" font-size="11.5" fill="#0f172a">id</text><text x="630" y="79" text-anchor="end" font-size="10" fill="#0369a1">PK </text><text x="350" y="108" font-size="11.5" fill="#0f172a">cognito_sub</text><text x="630" y="108" text-anchor="end" font-size="10" fill="#0369a1">UK</text><text x="350" y="137" font-size="11.5" fill="#0f172a">email</text><text x="630" y="137" text-anchor="end" font-size="10" fill="#0369a1">UK</text></g><g><rect x="20" y="220" width="300" height="113" rx="8" fill="white" stroke="#94a3b8"/><path d="M28 220 H312 Q320 220 320 228 V256 H20 V228 Q20 220 28 220" fill="#17324d"/><text x="32" y="244" font-size="16" fill="white" font-weight="bold">user_saved_addresses</text><text x="30" y="279" font-size="11.5" fill="#0f172a">id</text><text x="310" y="279" text-anchor="end" font-size="10" fill="#0369a1">PK </text><text x="30" y="308" font-size="11.5" fill="#0f172a">user_id</text><text x="310" y="308" text-anchor="end" font-size="10" fill="#0369a1">FK UK</text></g><g><rect x="660" y="220" width="300" height="113" rx="8" fill="white" stroke="#94a3b8"/><path d="M668 220 H952 Q960 220 960 228 V256 H660 V228 Q660 220 668 220" fill="#17324d"/><text x="672" y="244" font-size="16" fill="white" font-weight="bold">user_saved_test_cards</text><text x="670" y="279" font-size="11.5" fill="#0f172a">id</text><text x="950" y="279" text-anchor="end" font-size="10" fill="#0369a1">PK </text><text x="670" y="308" font-size="11.5" fill="#0f172a">user_id</text><text x="950" y="308" text-anchor="end" font-size="10" fill="#0369a1">FK UK</text></g><g><rect x="340" y="410" width="300" height="171" rx="8" fill="white" stroke="#94a3b8"/><path d="M348 410 H632 Q640 410 640 418 V446 H340 V418 Q340 410 348 410" fill="#17324d"/><text x="352" y="434" font-size="16" fill="white" font-weight="bold">carts</text><text x="350" y="469" font-size="11.5" fill="#0f172a">id</text><text x="630" y="469" text-anchor="end" font-size="10" fill="#0369a1">PK </text><text x="350" y="498" font-size="11.5" fill="#0f172a">user_id</text><text x="630" y="498" text-anchor="end" font-size="10" fill="#0369a1">FK UK</text><text x="350" y="527" font-size="11.5" fill="#0f172a">guest_cart_token</text><text x="630" y="527" text-anchor="end" font-size="10" fill="#0369a1">UK</text><text x="350" y="556" font-size="11.5" fill="#0f172a">pending_merge_cart_id</text><text x="630" y="556" text-anchor="end" font-size="10" fill="#0369a1">FK </text></g><g><rect x="340" y="770" width="300" height="142" rx="8" fill="white" stroke="#94a3b8"/><path d="M348 770 H632 Q640 770 640 778 V806 H340 V778 Q340 770 348 770" fill="#17324d"/><text x="352" y="794" font-size="16" fill="white" font-weight="bold">cart_items</text><text x="350" y="829" font-size="11.5" fill="#0f172a">id</text><text x="630" y="829" text-anchor="end" font-size="10" fill="#0369a1">PK </text><text x="350" y="858" font-size="11.5" fill="#0f172a">cart_id</text><text x="630" y="858" text-anchor="end" font-size="10" fill="#0369a1">FK UK*</text><text x="350" y="887" font-size="11.5" fill="#0f172a">product_id</text><text x="630" y="887" text-anchor="end" font-size="10" fill="#0369a1">FK UK*</text></g><g><rect x="20" y="610" width="300" height="84" rx="8" fill="white" stroke="#94a3b8"/><path d="M28 610 H312 Q320 610 320 618 V646 H20 V618 Q20 610 28 610" fill="#17324d"/><text x="32" y="634" font-size="16" fill="white" font-weight="bold">products</text><text x="30" y="669" font-size="11.5" fill="#0f172a">id</text><text x="310" y="669" text-anchor="end" font-size="10" fill="#0369a1">PK </text></g></svg><details><summary>編集用Mermaidコード（全カラム）</summary><textarea spellcheck="false">erDiagram
+    direction TB
+    users {
+        BIGINT id PK &quot;NN / 会員ID&quot;
+        VARCHAR(128) cognito_sub UK &quot;NN / Cognito識別子&quot;
+        VARCHAR(50) name &quot;NN / 氏名&quot;
+        VARCHAR(254) email UK &quot;NN / メールアドレス&quot;
+        VARCHAR(20) status &quot;NN / 会員状態&quot;
+        TIMESTAMPTZ(3) created_at &quot;NN / 登録日時&quot;
+        TIMESTAMPTZ(3) updated_at &quot;NN / 最終更新日時&quot;
+    }
+    user_saved_addresses {
+        BIGINT id PK &quot;NN / 保存配送先ID&quot;
+        BIGINT user_id FK, UK &quot;NN / 会員ID&quot;
+        VARCHAR(50) recipient_name &quot;NN / 受取人氏名&quot;
+        CHAR(7) postal_code &quot;NN / 郵便番号&quot;
+        VARCHAR(10) prefecture &quot;NN / 都道府県&quot;
+        VARCHAR(100) city_street &quot;NN / 市区町村・番地&quot;
+        VARCHAR(100) building &quot;NULL可 / 建物名・部屋番号&quot;
+        VARCHAR(11) phone_number &quot;NN / 電話番号&quot;
+        BIGINT version &quot;NN / 版情報&quot;
+        TIMESTAMPTZ(3) created_at &quot;NN / 登録日時&quot;
+        TIMESTAMPTZ(3) updated_at &quot;NN / 最終更新日時&quot;
+    }
+    user_saved_test_cards {
+        BIGINT id PK &quot;NN / 保存テストカードID&quot;
+        BIGINT user_id FK, UK &quot;NN / 会員ID&quot;
+        CHAR(16) card_number &quot;NN / テストカード番号&quot;
+        CHAR(4) last4_digits &quot;NN / 下4桁&quot;
+        VARCHAR(50) card_display_name &quot;NN / カード表示名&quot;
+        BIGINT version &quot;NN / 版情報&quot;
+        TIMESTAMPTZ(3) created_at &quot;NN / 登録日時&quot;
+        TIMESTAMPTZ(3) updated_at &quot;NN / 最終更新日時&quot;
+    }
+    carts {
+        BIGINT id PK &quot;NN / カートID&quot;
+        BIGINT user_id FK, UK &quot;NULL可 / 会員ID&quot;
+        VARCHAR(64) guest_cart_token UK &quot;NULL可 / ゲストカート識別子&quot;
+        VARCHAR(20) status &quot;NN / カート状態&quot;
+        BIGINT pending_merge_cart_id FK &quot;NULL可 / 統合待ちゲストカートID&quot;
+        BIGINT version &quot;NN / 版情報&quot;
+        TIMESTAMPTZ(3) expires_at &quot;NULL可 / 有効期限&quot;
+        TIMESTAMPTZ(3) created_at &quot;NN / 登録日時&quot;
+        TIMESTAMPTZ(3) updated_at &quot;NN / 最終更新日時&quot;
+    }
+    cart_items {
+        BIGINT id PK &quot;NN / カート明細ID&quot;
+        BIGINT cart_id FK, UK &quot;NN / カートID / 複合UKの構成列&quot;
+        BIGINT product_id FK, UK &quot;NN / 商品ID / 複合UKの構成列&quot;
+        INTEGER quantity &quot;NN / 保存済み数量&quot;
+        VARCHAR(100) added_product_name &quot;NN / 追加時商品名&quot;
+        INTEGER added_price_including_tax &quot;NN / 追加時税込単価&quot;
+        TIMESTAMPTZ(3) created_at &quot;NN / 追加日時&quot;
+        TIMESTAMPTZ(3) updated_at &quot;NN / 最終更新日時&quot;
+    }
+    products {
+        BIGINT id PK &quot;NN / 商品ID&quot;
+        VARCHAR(100) name &quot;NN / 商品名&quot;
+        VARCHAR(200) summary &quot;NULL可 / 商品概要&quot;
+        VARCHAR(2000) description &quot;NULL可 / 詳細説明&quot;
+        INTEGER price_excluding_tax &quot;NN / 税抜価格&quot;
+        SMALLINT tax_rate &quot;NN / 消費税率(%)&quot;
+        INTEGER price_including_tax &quot;NN / 税込価格&quot;
+        INTEGER stock_quantity &quot;NN / 在庫数&quot;
+        VARCHAR(20) publish_status &quot;NN / 公開状態&quot;
+        VARCHAR(20) sales_status &quot;NN / 販売設定&quot;
+        VARCHAR(512) image_s3_key &quot;NULL可 / 画像S3キー&quot;
+        BOOLEAN is_deleted &quot;NN / 論理削除フラグ&quot;
+        TIMESTAMPTZ(3) deleted_at &quot;NULL可 / 削除日時&quot;
+        BIGINT version &quot;NN / 版情報&quot;
+        TIMESTAMPTZ(3) created_at &quot;NN / 登録日時&quot;
+        TIMESTAMPTZ(3) updated_at &quot;NN / 最終更新日時&quot;
+    }
+    users ||..|o user_saved_addresses : &quot;user_id&quot;
+    users ||..|o user_saved_test_cards : &quot;user_id&quot;
+    users o|..|o carts : &quot;user_id&quot;
+    carts ||..o{ cart_items : &quot;cart_id&quot;
+    products ||..o{ cart_items : &quot;product_id&quot;</textarea></details></section><section id="g1"><h2>カート統合</h2><p class="legend">キー項目を表示。矢印は参照先テーブル → FKを持つテーブル。角括弧は［参照先側 : FK側］の件数。UK*は複合一意制約。</p><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 591" font-family="Arial,sans-serif"><defs><marker id="arrow" markerWidth="7" markerHeight="7" refX="7" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7" fill="none" stroke="#64748b"/></marker></defs><rect width="980" height="591" fill="white"/><path d="M 920 60 C 970 60, 970 271, 910 271 L 910 191" fill="none" stroke="#64748b" stroke-width="1.7" marker-end="url(#arrow)"/><text x="900" y="226" text-anchor="end" font-size="11" fill="#334155" stroke="white" stroke-width="4" paint-order="stroke">pending_merge_cart_id [0..1 : 0..N]</text><path d="M 170.0 162 C 170.0 256.0, 450.0 256.0, 450.0 350" fill="none" stroke="#64748b" stroke-width="1.7" marker-end="url(#arrow)"/><text x="310.0" y="248.0" text-anchor="middle" font-size="11" fill="#334155" stroke="white" stroke-width="4" paint-order="stroke">user_id [1 : 0..N]</text><path d="M 830 191 C 830 270.5, 570 270.5, 570 350" fill="none" stroke="#64748b" stroke-width="1.7" marker-end="url(#arrow)"/><text x="770" y="300" text-anchor="middle" font-size="11" fill="#334155" stroke="white" stroke-width="4" paint-order="stroke">target_cart_id [1 : 0..N]</text><path d="M 680 191 C 680 270.5, 510 270.5, 510 350" fill="none" stroke="#64748b" stroke-width="1.7" marker-end="url(#arrow)"/><text x="770" y="250" text-anchor="middle" font-size="11" fill="#334155" stroke="white" stroke-width="4" paint-order="stroke">source_cart_id [1 : 0..1]</text><g><rect x="20" y="20" width="300" height="142" rx="8" fill="white" stroke="#94a3b8"/><path d="M28 20 H312 Q320 20 320 28 V56 H20 V28 Q20 20 28 20" fill="#17324d"/><text x="32" y="44" font-size="16" fill="white" font-weight="bold">users</text><text x="30" y="79" font-size="11.5" fill="#0f172a">id</text><text x="310" y="79" text-anchor="end" font-size="10" fill="#0369a1">PK </text><text x="30" y="108" font-size="11.5" fill="#0f172a">cognito_sub</text><text x="310" y="108" text-anchor="end" font-size="10" fill="#0369a1">UK</text><text x="30" y="137" font-size="11.5" fill="#0f172a">email</text><text x="310" y="137" text-anchor="end" font-size="10" fill="#0369a1">UK</text></g><g><rect x="620" y="20" width="300" height="171" rx="8" fill="white" stroke="#94a3b8"/><path d="M628 20 H912 Q920 20 920 28 V56 H620 V28 Q620 20 628 20" fill="#17324d"/><text x="632" y="44" font-size="16" fill="white" font-weight="bold">carts</text><text x="630" y="79" font-size="11.5" fill="#0f172a">id</text><text x="910" y="79" text-anchor="end" font-size="10" fill="#0369a1">PK </text><text x="630" y="108" font-size="11.5" fill="#0f172a">user_id</text><text x="910" y="108" text-anchor="end" font-size="10" fill="#0369a1">FK UK</text><text x="630" y="137" font-size="11.5" fill="#0f172a">guest_cart_token</text><text x="910" y="137" text-anchor="end" font-size="10" fill="#0369a1">UK</text><text x="630" y="166" font-size="11.5" fill="#0f172a">pending_merge_cart_id</text><text x="910" y="166" text-anchor="end" font-size="10" fill="#0369a1">FK </text></g><g><rect x="300" y="350" width="300" height="171" rx="8" fill="white" stroke="#94a3b8"/><path d="M308 350 H592 Q600 350 600 358 V386 H300 V358 Q300 350 308 350" fill="#17324d"/><text x="312" y="374" font-size="16" fill="white" font-weight="bold">cart_merge_logs</text><text x="310" y="409" font-size="11.5" fill="#0f172a">id</text><text x="590" y="409" text-anchor="end" font-size="10" fill="#0369a1">PK </text><text x="310" y="438" font-size="11.5" fill="#0f172a">user_id</text><text x="590" y="438" text-anchor="end" font-size="10" fill="#0369a1">FK </text><text x="310" y="467" font-size="11.5" fill="#0f172a">target_cart_id</text><text x="590" y="467" text-anchor="end" font-size="10" fill="#0369a1">FK </text><text x="310" y="496" font-size="11.5" fill="#0f172a">source_cart_id</text><text x="590" y="496" text-anchor="end" font-size="10" fill="#0369a1">FK UK</text></g></svg><details><summary>編集用Mermaidコード（全カラム）</summary><textarea spellcheck="false">erDiagram
+    direction TB
+    users {
+        BIGINT id PK &quot;NN / 会員ID&quot;
+        VARCHAR(128) cognito_sub UK &quot;NN / Cognito識別子&quot;
+        VARCHAR(50) name &quot;NN / 氏名&quot;
+        VARCHAR(254) email UK &quot;NN / メールアドレス&quot;
+        VARCHAR(20) status &quot;NN / 会員状態&quot;
+        TIMESTAMPTZ(3) created_at &quot;NN / 登録日時&quot;
+        TIMESTAMPTZ(3) updated_at &quot;NN / 最終更新日時&quot;
+    }
+    carts {
+        BIGINT id PK &quot;NN / カートID&quot;
+        BIGINT user_id FK, UK &quot;NULL可 / 会員ID&quot;
+        VARCHAR(64) guest_cart_token UK &quot;NULL可 / ゲストカート識別子&quot;
+        VARCHAR(20) status &quot;NN / カート状態&quot;
+        BIGINT pending_merge_cart_id FK &quot;NULL可 / 統合待ちゲストカートID&quot;
+        BIGINT version &quot;NN / 版情報&quot;
+        TIMESTAMPTZ(3) expires_at &quot;NULL可 / 有効期限&quot;
+        TIMESTAMPTZ(3) created_at &quot;NN / 登録日時&quot;
+        TIMESTAMPTZ(3) updated_at &quot;NN / 最終更新日時&quot;
+    }
+    cart_merge_logs {
+        BIGINT id PK &quot;NN / 統合履歴ID&quot;
+        BIGINT user_id FK &quot;NN / 会員ID&quot;
+        BIGINT target_cart_id FK &quot;NN / 統合先会員カートID&quot;
+        BIGINT source_cart_id FK, UK &quot;NN / 統合元ゲストカートID&quot;
+        VARCHAR(20) merge_status &quot;NN / 統合状態&quot;
+        BOOLEAN has_adjustments &quot;NN / 調整・除外有無&quot;
+        JSONB adjustments_json &quot;NULL可 / 調整・除外明細詳細&quot;
+        BOOLEAN is_acknowledged &quot;NN / 画面確認済みフラグ&quot;
+        TIMESTAMPTZ(3) created_at &quot;NN / 登録日時&quot;
+        TIMESTAMPTZ(3) updated_at &quot;NN / 最終更新日時&quot;
+    }
+    carts o|..o{ carts : &quot;pending_merge_cart_id&quot;
+    users ||..o{ cart_merge_logs : &quot;user_id&quot;
+    carts ||..o{ cart_merge_logs : &quot;target_cart_id&quot;
+    carts ||..|o cart_merge_logs : &quot;source_cart_id&quot;</textarea></details></section><section id="g2"><h2>注文・注文時点の記録</h2><p class="legend">キー項目を表示。矢印は参照先テーブル → FKを持つテーブル。角括弧は［参照先側 : FK側］の件数。UK*は複合一意制約。</p><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 931" font-family="Arial,sans-serif"><defs><marker id="arrow" markerWidth="7" markerHeight="7" refX="7" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7" fill="none" stroke="#64748b"/></marker></defs><rect width="980" height="931" fill="white"/><path d="M 170.0 162 C 170.0 206.0, 450.0 206.0, 450.0 250" fill="none" stroke="#64748b" stroke-width="1.7" marker-end="url(#arrow)"/><text x="310.0" y="198.0" text-anchor="middle" font-size="11" fill="#334155" stroke="white" stroke-width="4" paint-order="stroke">user_id [1 : 0..N]</text><path d="M 770.0 104 C 770.0 177.0, 450.0 177.0, 450.0 250" fill="none" stroke="#64748b" stroke-width="1.7" marker-end="url(#arrow)"/><text x="610.0" y="169.0" text-anchor="middle" font-size="11" fill="#334155" stroke="white" stroke-width="4" paint-order="stroke">order_create_operation_id [1 : 0..1]</text><path d="M 450.0 421 C 450.0 555.5, 450.0 555.5, 450.0 690" fill="none" stroke="#64748b" stroke-width="1.7" marker-end="url(#arrow)"/><text x="450.0" y="547.5" text-anchor="middle" font-size="11" fill="#334155" stroke="white" stroke-width="4" paint-order="stroke">order_id [1 : 0..N]</text><path d="M 770.0 564 C 770.0 627.0, 450.0 627.0, 450.0 690" fill="none" stroke="#64748b" stroke-width="1.7" marker-end="url(#arrow)"/><text x="610.0" y="619.0" text-anchor="middle" font-size="11" fill="#334155" stroke="white" stroke-width="4" paint-order="stroke">product_id [1 : 0..N]</text><g><rect x="20" y="20" width="300" height="142" rx="8" fill="white" stroke="#94a3b8"/><path d="M28 20 H312 Q320 20 320 28 V56 H20 V28 Q20 20 28 20" fill="#17324d"/><text x="32" y="44" font-size="16" fill="white" font-weight="bold">users</text><text x="30" y="79" font-size="11.5" fill="#0f172a">id</text><text x="310" y="79" text-anchor="end" font-size="10" fill="#0369a1">PK </text><text x="30" y="108" font-size="11.5" fill="#0f172a">cognito_sub</text><text x="310" y="108" text-anchor="end" font-size="10" fill="#0369a1">UK</text><text x="30" y="137" font-size="11.5" fill="#0f172a">email</text><text x="310" y="137" text-anchor="end" font-size="10" fill="#0369a1">UK</text></g><g><rect x="300" y="250" width="300" height="171" rx="8" fill="white" stroke="#94a3b8"/><path d="M308 250 H592 Q600 250 600 258 V286 H300 V258 Q300 250 308 250" fill="#17324d"/><text x="312" y="274" font-size="16" fill="white" font-weight="bold">orders</text><text x="310" y="309" font-size="11.5" fill="#0f172a">id</text><text x="590" y="309" text-anchor="end" font-size="10" fill="#0369a1">PK </text><text x="310" y="338" font-size="11.5" fill="#0f172a">order_number</text><text x="590" y="338" text-anchor="end" font-size="10" fill="#0369a1">UK</text><text x="310" y="367" font-size="11.5" fill="#0f172a">user_id</text><text x="590" y="367" text-anchor="end" font-size="10" fill="#0369a1">FK </text><text x="310" y="396" font-size="11.5" fill="#0f172a">order_create_operation_id</text><text x="590" y="396" text-anchor="end" font-size="10" fill="#0369a1">FK UK</text></g><g><rect x="300" y="690" width="300" height="171" rx="8" fill="white" stroke="#94a3b8"/><path d="M308 690 H592 Q600 690 600 698 V726 H300 V698 Q300 690 308 690" fill="#17324d"/><text x="312" y="714" font-size="16" fill="white" font-weight="bold">order_items</text><text x="310" y="749" font-size="11.5" fill="#0f172a">id</text><text x="590" y="749" text-anchor="end" font-size="10" fill="#0369a1">PK </text><text x="310" y="778" font-size="11.5" fill="#0f172a">order_id</text><text x="590" y="778" text-anchor="end" font-size="10" fill="#0369a1">FK UK*</text><text x="310" y="807" font-size="11.5" fill="#0f172a">line_number</text><text x="590" y="807" text-anchor="end" font-size="10" fill="#0369a1">UK*</text><text x="310" y="836" font-size="11.5" fill="#0f172a">product_id</text><text x="590" y="836" text-anchor="end" font-size="10" fill="#0369a1">FK </text></g><g><rect x="620" y="480" width="300" height="84" rx="8" fill="white" stroke="#94a3b8"/><path d="M628 480 H912 Q920 480 920 488 V516 H620 V488 Q620 480 628 480" fill="#17324d"/><text x="632" y="504" font-size="16" fill="white" font-weight="bold">products</text><text x="630" y="539" font-size="11.5" fill="#0f172a">id</text><text x="910" y="539" text-anchor="end" font-size="10" fill="#0369a1">PK </text></g><g><rect x="620" y="20" width="300" height="84" rx="8" fill="white" stroke="#94a3b8"/><path d="M628 20 H912 Q920 20 920 28 V56 H620 V28 Q620 20 628 20" fill="#17324d"/><text x="632" y="44" font-size="16" fill="white" font-weight="bold">operation_histories</text><text x="630" y="79" font-size="11.5" fill="#0f172a">operation_id</text><text x="910" y="79" text-anchor="end" font-size="10" fill="#0369a1">PK </text></g></svg><details><summary>編集用Mermaidコード（全カラム）</summary><textarea spellcheck="false">erDiagram
+    direction TB
+    users {
+        BIGINT id PK &quot;NN / 会員ID&quot;
+        VARCHAR(128) cognito_sub UK &quot;NN / Cognito識別子&quot;
+        VARCHAR(50) name &quot;NN / 氏名&quot;
+        VARCHAR(254) email UK &quot;NN / メールアドレス&quot;
+        VARCHAR(20) status &quot;NN / 会員状態&quot;
+        TIMESTAMPTZ(3) created_at &quot;NN / 登録日時&quot;
+        TIMESTAMPTZ(3) updated_at &quot;NN / 最終更新日時&quot;
+    }
+    orders {
+        BIGINT id PK &quot;NN / 注文ID&quot;
+        VARCHAR(32) order_number UK &quot;NN / 注文番号&quot;
+        BIGINT user_id FK &quot;NN / 会員ID&quot;
+        VARCHAR(20) order_status &quot;NN / 注文状況&quot;
+        BIGINT total_item_quantity &quot;NN / 注文時商品数量合計&quot;
+        BIGINT subtotal_including_tax &quot;NN / 税込商品合計&quot;
+        BIGINT shipping_fee_including_tax &quot;NN / 税込送料&quot;
+        BIGINT payment_fee_including_tax &quot;NN / 税込決済手数料&quot;
+        BIGINT total_amount_including_tax &quot;NN / 合計請求金額(税込)&quot;
+        VARCHAR(50) purchaser_name &quot;NN / 注文時・注文者氏名&quot;
+        VARCHAR(254) purchaser_email &quot;NN / 注文時・注文者メール&quot;
+        VARCHAR(50) recipient_name &quot;NN / 注文時・受取人氏名&quot;
+        CHAR(7) recipient_postal_code &quot;NN / 注文時・郵便番号&quot;
+        VARCHAR(10) recipient_prefecture &quot;NN / 注文時・都道府県&quot;
+        VARCHAR(100) recipient_city_street &quot;NN / 注文時・市区町村番地&quot;
+        VARCHAR(100) recipient_building &quot;NULL可 / 注文時・建物名等&quot;
+        VARCHAR(11) recipient_phone_number &quot;NN / 注文時・電話番号&quot;
+        VARCHAR(50) payment_method_name &quot;NN / 支払い方法表示名&quot;
+        CHAR(16) test_card_number_snapshot &quot;NN / 注文時カード番号&quot;
+        VARCHAR(50) test_card_display_name &quot;NN / 注文時カード表示名&quot;
+        CHAR(4) test_card_last4 &quot;NN / 注文時カード下4桁&quot;
+        VARCHAR(20) mock_payment_status &quot;NN / モック決済状態&quot;
+        VARCHAR(20) mock_refund_status &quot;NN / モック返金・取消状態&quot;
+        BIGINT mock_refund_amount &quot;NULL可 / モック返金・取消額&quot;
+        BOOLEAN save_address_requested &quot;NN / 配送先保存希望有無&quot;
+        VARCHAR(20) save_address_result &quot;NN / 配送先保存結果&quot;
+        BOOLEAN save_card_requested &quot;NN / カード保存希望有無&quot;
+        VARCHAR(20) save_card_result &quot;NN / カード保存結果&quot;
+        TIMESTAMPTZ(3) cancelled_at &quot;NULL可 / キャンセル日時&quot;
+        VARCHAR(200) cancel_reason &quot;NULL可 / キャンセル理由&quot;
+        BIGINT version &quot;NN / 版情報&quot;
+        TIMESTAMPTZ(3) ordered_at &quot;NN / 注文確定日時&quot;
+        TIMESTAMPTZ(3) updated_at &quot;NN / 最終更新日時&quot;
+        VARCHAR(64) order_create_operation_id FK, UK &quot;NN / 注文作成操作ID&quot;
+    }
+    order_items {
+        BIGINT id PK &quot;NN / 注文明細ID&quot;
+        BIGINT order_id FK, UK &quot;NN / 注文ID / 複合UKの構成列&quot;
+        INTEGER line_number UK &quot;NN / 明細番号 / 複合UKの構成列&quot;
+        BIGINT product_id FK &quot;NN / 商品ID&quot;
+        VARCHAR(100) product_name_snapshot &quot;NN / 注文時商品名&quot;
+        INTEGER unit_price_excluding_tax_snapshot &quot;NN / 注文時税抜単価&quot;
+        SMALLINT tax_rate_snapshot &quot;NN / 注文時消費税率(%)&quot;
+        INTEGER unit_price_including_tax_snapshot &quot;NN / 注文時税込単価&quot;
+        INTEGER quantity &quot;NN / 数量&quot;
+        BIGINT subtotal_including_tax_snapshot &quot;NN / 注文時税込明細小計&quot;
+        TIMESTAMPTZ(3) created_at &quot;NN / 登録日時&quot;
+    }
+    products {
+        BIGINT id PK &quot;NN / 商品ID&quot;
+        VARCHAR(100) name &quot;NN / 商品名&quot;
+        VARCHAR(200) summary &quot;NULL可 / 商品概要&quot;
+        VARCHAR(2000) description &quot;NULL可 / 詳細説明&quot;
+        INTEGER price_excluding_tax &quot;NN / 税抜価格&quot;
+        SMALLINT tax_rate &quot;NN / 消費税率(%)&quot;
+        INTEGER price_including_tax &quot;NN / 税込価格&quot;
+        INTEGER stock_quantity &quot;NN / 在庫数&quot;
+        VARCHAR(20) publish_status &quot;NN / 公開状態&quot;
+        VARCHAR(20) sales_status &quot;NN / 販売設定&quot;
+        VARCHAR(512) image_s3_key &quot;NULL可 / 画像S3キー&quot;
+        BOOLEAN is_deleted &quot;NN / 論理削除フラグ&quot;
+        TIMESTAMPTZ(3) deleted_at &quot;NULL可 / 削除日時&quot;
+        BIGINT version &quot;NN / 版情報&quot;
+        TIMESTAMPTZ(3) created_at &quot;NN / 登録日時&quot;
+        TIMESTAMPTZ(3) updated_at &quot;NN / 最終更新日時&quot;
+    }
+    operation_histories {
+        VARCHAR(64) operation_id PK &quot;NN / 操作識別情報&quot;
+        VARCHAR(40) operation_type &quot;NN / 操作種別&quot;
+        VARCHAR(20) actor_type &quot;NN / 実行主体区分&quot;
+        VARCHAR(64) actor_id &quot;NN / 実行者識別子&quot;
+        BIGINT target_resource_id &quot;NULL可 / 対象リソースID&quot;
+        VARCHAR(20) operation_status &quot;NN / 処理状態&quot;
+        BOOLEAN is_retryable &quot;NN / 安全な再操作可否&quot;
+        VARCHAR(50) result_code &quot;NULL可 / 結果・エラーコード&quot;
+        JSONB result_summary_json &quot;NULL可 / 応答要約データ&quot;
+        TIMESTAMPTZ(3) expires_at &quot;NULL可 / 有効期限&quot;
+        TIMESTAMPTZ(3) created_at &quot;NN / 作成日時&quot;
+        TIMESTAMPTZ(3) updated_at &quot;NN / 最終更新日時&quot;
+        CHAR(64) request_hash &quot;NN / 要求内容のハッシュ&quot;
+    }
+    users ||..o{ orders : &quot;user_id&quot;
+    operation_histories ||..|o orders : &quot;order_create_operation_id&quot;
+    orders ||..o{ order_items : &quot;order_id&quot;
+    products ||..o{ order_items : &quot;product_id&quot;</textarea></details></section><section id="g3"><h2>管理者・画像アップロード</h2><p class="legend">キー項目を表示。矢印は参照先テーブル → FKを持つテーブル。角括弧は［参照先側 : FK側］の件数。UK*は複合一意制約。</p><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 462" font-family="Arial,sans-serif"><defs><marker id="arrow" markerWidth="7" markerHeight="7" refX="7" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7" fill="none" stroke="#64748b"/></marker></defs><rect width="980" height="462" fill="white"/><path d="M 230.0 172 C 230.0 211.0, 730.0 211.0, 730.0 250" fill="none" stroke="#64748b" stroke-width="1.7" marker-end="url(#arrow)"/><text x="480.0" y="203.0" text-anchor="middle" font-size="11" fill="#334155" stroke="white" stroke-width="4" paint-order="stroke">admin_id [1 : 0..N]</text><g><rect x="80" y="30" width="300" height="142" rx="8" fill="white" stroke="#94a3b8"/><path d="M88 30 H372 Q380 30 380 38 V66 H80 V38 Q80 30 88 30" fill="#17324d"/><text x="92" y="54" font-size="16" fill="white" font-weight="bold">admins</text><text x="90" y="89" font-size="11.5" fill="#0f172a">id</text><text x="370" y="89" text-anchor="end" font-size="10" fill="#0369a1">PK </text><text x="90" y="118" font-size="11.5" fill="#0f172a">cognito_sub</text><text x="370" y="118" text-anchor="end" font-size="10" fill="#0369a1">UK</text><text x="90" y="147" font-size="11.5" fill="#0f172a">email</text><text x="370" y="147" text-anchor="end" font-size="10" fill="#0369a1">UK</text></g><g><rect x="580" y="250" width="300" height="142" rx="8" fill="white" stroke="#94a3b8"/><path d="M588 250 H872 Q880 250 880 258 V286 H580 V258 Q580 250 588 250" fill="#17324d"/><text x="592" y="274" font-size="16" fill="white" font-weight="bold">product_image_uploads</text><text x="590" y="309" font-size="11.5" fill="#0f172a">upload_operation_id</text><text x="870" y="309" text-anchor="end" font-size="10" fill="#0369a1">PK </text><text x="590" y="338" font-size="11.5" fill="#0f172a">admin_id</text><text x="870" y="338" text-anchor="end" font-size="10" fill="#0369a1">FK </text><text x="590" y="367" font-size="11.5" fill="#0f172a">s3_object_key</text><text x="870" y="367" text-anchor="end" font-size="10" fill="#0369a1">UK</text></g></svg><details><summary>編集用Mermaidコード（全カラム）</summary><textarea spellcheck="false">erDiagram
+    direction TB
+    admins {
+        BIGINT id PK &quot;NN / 管理者ID&quot;
+        VARCHAR(128) cognito_sub UK &quot;NN / Cognito管理者識別子&quot;
+        VARCHAR(254) email UK &quot;NN / メールアドレス&quot;
+        VARCHAR(50) display_name &quot;NN / 表示名&quot;
+        VARCHAR(30) role &quot;NN / ロール区分&quot;
+        VARCHAR(20) status &quot;NN / 管理者状態&quot;
+        TIMESTAMPTZ(3) created_at &quot;NN / 登録日時&quot;
+        TIMESTAMPTZ(3) updated_at &quot;NN / 最終更新日時&quot;
+    }
+    product_image_uploads {
+        VARCHAR(64) upload_operation_id PK &quot;NN / アップロード操作ID&quot;
+        BIGINT admin_id FK &quot;NN / 実行管理者ID&quot;
+        VARCHAR(512) s3_object_key UK &quot;NN / S3オブジェクトキー&quot;
+        VARCHAR(255) original_filename &quot;NN / 元ファイル名&quot;
+        VARCHAR(50) mime_type &quot;NN / MIMEタイプ&quot;
+        INTEGER file_size &quot;NN / ファイルサイズ&quot;
+        VARCHAR(20) status &quot;NN / 状態&quot;
+        TIMESTAMPTZ(3) created_at &quot;NN / 登録日時&quot;
+        TIMESTAMPTZ(3) updated_at &quot;NN / 最終更新日時&quot;
+    }
+    admins ||..o{ product_image_uploads : &quot;admin_id&quot;</textarea></details></section><section><h2>制約・参照の補足</h2><ul><li>会員カートとゲストカートの所有者は排他。carts.user_idとguest_cart_tokenの片方のみ設定。</li><li>保存配送先・保存カードは会員ごとに最大1件。番号16桁は保持し、画面には下4桁のみ返却。</li><li>pending_merge_cart_idは任意の自己参照。ゲスト属性・所有権はバックエンドで確認。</li><li>cart_itemsの複合UKは(cart_id, product_id)、order_itemsは(order_id, line_number)。</li><li>注文の商品名・価格・配送先・カード情報はスナップショット。保存情報へのFKは持たず、画像のみ現在の商品を参照。</li><li>注文作成操作IDは必須・一意なFK。同一操作の注文は最大1件。</li><li>日時はUTC保持・JST表示。ゲスト期限の起点や在庫処理方式等の未確定事項はDB設計書に従います。</li></ul></section><section><h2>全カラム一覧</h2><details><summary>users — 7カラム</summary><table><tr><th>物理名</th><th>論理名</th><th>型</th><th>制約</th></tr><tr><td>id</td><td>会員ID</td><td>BIGINT</td><td>NN / PK</td></tr><tr><td>cognito_sub</td><td>Cognito識別子</td><td>VARCHAR(128)</td><td>NN / UK</td></tr><tr><td>name</td><td>氏名</td><td>VARCHAR(50)</td><td>NN</td></tr><tr><td>email</td><td>メールアドレス</td><td>VARCHAR(254)</td><td>NN / UK</td></tr><tr><td>status</td><td>会員状態</td><td>VARCHAR(20)</td><td>NN</td></tr><tr><td>created_at</td><td>登録日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr><tr><td>updated_at</td><td>最終更新日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr></table></details><details><summary>admins — 8カラム</summary><table><tr><th>物理名</th><th>論理名</th><th>型</th><th>制約</th></tr><tr><td>id</td><td>管理者ID</td><td>BIGINT</td><td>NN / PK</td></tr><tr><td>cognito_sub</td><td>Cognito管理者識別子</td><td>VARCHAR(128)</td><td>NN / UK</td></tr><tr><td>email</td><td>メールアドレス</td><td>VARCHAR(254)</td><td>NN / UK</td></tr><tr><td>display_name</td><td>表示名</td><td>VARCHAR(50)</td><td>NN</td></tr><tr><td>role</td><td>ロール区分</td><td>VARCHAR(30)</td><td>NN</td></tr><tr><td>status</td><td>管理者状態</td><td>VARCHAR(20)</td><td>NN</td></tr><tr><td>created_at</td><td>登録日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr><tr><td>updated_at</td><td>最終更新日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr></table></details><details><summary>user_saved_addresses — 11カラム</summary><table><tr><th>物理名</th><th>論理名</th><th>型</th><th>制約</th></tr><tr><td>id</td><td>保存配送先ID</td><td>BIGINT</td><td>NN / PK</td></tr><tr><td>user_id</td><td>会員ID</td><td>BIGINT</td><td>NN / FK: users.id (CASCADE) / UK</td></tr><tr><td>recipient_name</td><td>受取人氏名</td><td>VARCHAR(50)</td><td>NN</td></tr><tr><td>postal_code</td><td>郵便番号</td><td>CHAR(7)</td><td>NN</td></tr><tr><td>prefecture</td><td>都道府県</td><td>VARCHAR(10)</td><td>NN</td></tr><tr><td>city_street</td><td>市区町村・番地</td><td>VARCHAR(100)</td><td>NN</td></tr><tr><td>building</td><td>建物名・部屋番号</td><td>VARCHAR(100)</td><td>NULL可</td></tr><tr><td>phone_number</td><td>電話番号</td><td>VARCHAR(11)</td><td>NN</td></tr><tr><td>version</td><td>版情報</td><td>BIGINT</td><td>NN</td></tr><tr><td>created_at</td><td>登録日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr><tr><td>updated_at</td><td>最終更新日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr></table></details><details><summary>user_saved_test_cards — 8カラム</summary><table><tr><th>物理名</th><th>論理名</th><th>型</th><th>制約</th></tr><tr><td>id</td><td>保存テストカードID</td><td>BIGINT</td><td>NN / PK</td></tr><tr><td>user_id</td><td>会員ID</td><td>BIGINT</td><td>NN / FK: users.id (CASCADE) / UK</td></tr><tr><td>card_number</td><td>テストカード番号</td><td>CHAR(16)</td><td>NN</td></tr><tr><td>last4_digits</td><td>下4桁</td><td>CHAR(4)</td><td>NN</td></tr><tr><td>card_display_name</td><td>カード表示名</td><td>VARCHAR(50)</td><td>NN</td></tr><tr><td>version</td><td>版情報</td><td>BIGINT</td><td>NN</td></tr><tr><td>created_at</td><td>登録日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr><tr><td>updated_at</td><td>最終更新日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr></table></details><details><summary>products — 16カラム</summary><table><tr><th>物理名</th><th>論理名</th><th>型</th><th>制約</th></tr><tr><td>id</td><td>商品ID</td><td>BIGINT</td><td>NN / PK</td></tr><tr><td>name</td><td>商品名</td><td>VARCHAR(100)</td><td>NN</td></tr><tr><td>summary</td><td>商品概要</td><td>VARCHAR(200)</td><td>NULL可</td></tr><tr><td>description</td><td>詳細説明</td><td>VARCHAR(2000)</td><td>NULL可</td></tr><tr><td>price_excluding_tax</td><td>税抜価格</td><td>INTEGER</td><td>NN</td></tr><tr><td>tax_rate</td><td>消費税率(%)</td><td>SMALLINT</td><td>NN</td></tr><tr><td>price_including_tax</td><td>税込価格</td><td>INTEGER</td><td>NN</td></tr><tr><td>stock_quantity</td><td>在庫数</td><td>INTEGER</td><td>NN</td></tr><tr><td>publish_status</td><td>公開状態</td><td>VARCHAR(20)</td><td>NN</td></tr><tr><td>sales_status</td><td>販売設定</td><td>VARCHAR(20)</td><td>NN</td></tr><tr><td>image_s3_key</td><td>画像S3キー</td><td>VARCHAR(512)</td><td>NULL可</td></tr><tr><td>is_deleted</td><td>論理削除フラグ</td><td>BOOLEAN</td><td>NN</td></tr><tr><td>deleted_at</td><td>削除日時</td><td>TIMESTAMPTZ(3)</td><td>NULL可</td></tr><tr><td>version</td><td>版情報</td><td>BIGINT</td><td>NN</td></tr><tr><td>created_at</td><td>登録日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr><tr><td>updated_at</td><td>最終更新日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr></table></details><details><summary>product_image_uploads — 9カラム</summary><table><tr><th>物理名</th><th>論理名</th><th>型</th><th>制約</th></tr><tr><td>upload_operation_id</td><td>アップロード操作ID</td><td>VARCHAR(64)</td><td>NN / PK</td></tr><tr><td>admin_id</td><td>実行管理者ID</td><td>BIGINT</td><td>NN / FK: admins.id</td></tr><tr><td>s3_object_key</td><td>S3オブジェクトキー</td><td>VARCHAR(512)</td><td>NN / UK</td></tr><tr><td>original_filename</td><td>元ファイル名</td><td>VARCHAR(255)</td><td>NN</td></tr><tr><td>mime_type</td><td>MIMEタイプ</td><td>VARCHAR(50)</td><td>NN</td></tr><tr><td>file_size</td><td>ファイルサイズ</td><td>INTEGER</td><td>NN</td></tr><tr><td>status</td><td>状態</td><td>VARCHAR(20)</td><td>NN</td></tr><tr><td>created_at</td><td>登録日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr><tr><td>updated_at</td><td>最終更新日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr></table></details><details><summary>carts — 9カラム</summary><table><tr><th>物理名</th><th>論理名</th><th>型</th><th>制約</th></tr><tr><td>id</td><td>カートID</td><td>BIGINT</td><td>NN / PK</td></tr><tr><td>user_id</td><td>会員ID</td><td>BIGINT</td><td>NULL可 / FK: users.id (CASCADE) / UK</td></tr><tr><td>guest_cart_token</td><td>ゲストカート識別子</td><td>VARCHAR(64)</td><td>NULL可 / UK</td></tr><tr><td>status</td><td>カート状態</td><td>VARCHAR(20)</td><td>NN</td></tr><tr><td>pending_merge_cart_id</td><td>統合待ちゲストカートID</td><td>BIGINT</td><td>NULL可 / FK: carts.id</td></tr><tr><td>version</td><td>版情報</td><td>BIGINT</td><td>NN</td></tr><tr><td>expires_at</td><td>有効期限</td><td>TIMESTAMPTZ(3)</td><td>NULL可</td></tr><tr><td>created_at</td><td>登録日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr><tr><td>updated_at</td><td>最終更新日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr></table></details><details><summary>cart_items — 8カラム</summary><table><tr><th>物理名</th><th>論理名</th><th>型</th><th>制約</th></tr><tr><td>id</td><td>カート明細ID</td><td>BIGINT</td><td>NN / PK</td></tr><tr><td>cart_id</td><td>カートID</td><td>BIGINT</td><td>NN / FK: carts.id (CASCADE) / UK（複合）</td></tr><tr><td>product_id</td><td>商品ID</td><td>BIGINT</td><td>NN / FK: products.id / UK（複合）</td></tr><tr><td>quantity</td><td>保存済み数量</td><td>INTEGER</td><td>NN</td></tr><tr><td>added_product_name</td><td>追加時商品名</td><td>VARCHAR(100)</td><td>NN</td></tr><tr><td>added_price_including_tax</td><td>追加時税込単価</td><td>INTEGER</td><td>NN</td></tr><tr><td>created_at</td><td>追加日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr><tr><td>updated_at</td><td>最終更新日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr></table></details><details><summary>cart_merge_logs — 10カラム</summary><table><tr><th>物理名</th><th>論理名</th><th>型</th><th>制約</th></tr><tr><td>id</td><td>統合履歴ID</td><td>BIGINT</td><td>NN / PK</td></tr><tr><td>user_id</td><td>会員ID</td><td>BIGINT</td><td>NN / FK: users.id (CASCADE)</td></tr><tr><td>target_cart_id</td><td>統合先会員カートID</td><td>BIGINT</td><td>NN / FK: carts.id</td></tr><tr><td>source_cart_id</td><td>統合元ゲストカートID</td><td>BIGINT</td><td>NN / FK: carts.id / UK</td></tr><tr><td>merge_status</td><td>統合状態</td><td>VARCHAR(20)</td><td>NN</td></tr><tr><td>has_adjustments</td><td>調整・除外有無</td><td>BOOLEAN</td><td>NN</td></tr><tr><td>adjustments_json</td><td>調整・除外明細詳細</td><td>JSONB</td><td>NULL可</td></tr><tr><td>is_acknowledged</td><td>画面確認済みフラグ</td><td>BOOLEAN</td><td>NN</td></tr><tr><td>created_at</td><td>登録日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr><tr><td>updated_at</td><td>最終更新日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr></table></details><details><summary>orders — 34カラム</summary><table><tr><th>物理名</th><th>論理名</th><th>型</th><th>制約</th></tr><tr><td>id</td><td>注文ID</td><td>BIGINT</td><td>NN / PK</td></tr><tr><td>order_number</td><td>注文番号</td><td>VARCHAR(32)</td><td>NN / UK</td></tr><tr><td>user_id</td><td>会員ID</td><td>BIGINT</td><td>NN / FK: users.id</td></tr><tr><td>order_status</td><td>注文状況</td><td>VARCHAR(20)</td><td>NN</td></tr><tr><td>total_item_quantity</td><td>注文時商品数量合計</td><td>BIGINT</td><td>NN</td></tr><tr><td>subtotal_including_tax</td><td>税込商品合計</td><td>BIGINT</td><td>NN</td></tr><tr><td>shipping_fee_including_tax</td><td>税込送料</td><td>BIGINT</td><td>NN</td></tr><tr><td>payment_fee_including_tax</td><td>税込決済手数料</td><td>BIGINT</td><td>NN</td></tr><tr><td>total_amount_including_tax</td><td>合計請求金額(税込)</td><td>BIGINT</td><td>NN</td></tr><tr><td>purchaser_name</td><td>注文時・注文者氏名</td><td>VARCHAR(50)</td><td>NN</td></tr><tr><td>purchaser_email</td><td>注文時・注文者メール</td><td>VARCHAR(254)</td><td>NN</td></tr><tr><td>recipient_name</td><td>注文時・受取人氏名</td><td>VARCHAR(50)</td><td>NN</td></tr><tr><td>recipient_postal_code</td><td>注文時・郵便番号</td><td>CHAR(7)</td><td>NN</td></tr><tr><td>recipient_prefecture</td><td>注文時・都道府県</td><td>VARCHAR(10)</td><td>NN</td></tr><tr><td>recipient_city_street</td><td>注文時・市区町村番地</td><td>VARCHAR(100)</td><td>NN</td></tr><tr><td>recipient_building</td><td>注文時・建物名等</td><td>VARCHAR(100)</td><td>NULL可</td></tr><tr><td>recipient_phone_number</td><td>注文時・電話番号</td><td>VARCHAR(11)</td><td>NN</td></tr><tr><td>payment_method_name</td><td>支払い方法表示名</td><td>VARCHAR(50)</td><td>NN</td></tr><tr><td>test_card_number_snapshot</td><td>注文時カード番号</td><td>CHAR(16)</td><td>NN</td></tr><tr><td>test_card_display_name</td><td>注文時カード表示名</td><td>VARCHAR(50)</td><td>NN</td></tr><tr><td>test_card_last4</td><td>注文時カード下4桁</td><td>CHAR(4)</td><td>NN</td></tr><tr><td>mock_payment_status</td><td>モック決済状態</td><td>VARCHAR(20)</td><td>NN</td></tr><tr><td>mock_refund_status</td><td>モック返金・取消状態</td><td>VARCHAR(20)</td><td>NN</td></tr><tr><td>mock_refund_amount</td><td>モック返金・取消額</td><td>BIGINT</td><td>NULL可</td></tr><tr><td>save_address_requested</td><td>配送先保存希望有無</td><td>BOOLEAN</td><td>NN</td></tr><tr><td>save_address_result</td><td>配送先保存結果</td><td>VARCHAR(20)</td><td>NN</td></tr><tr><td>save_card_requested</td><td>カード保存希望有無</td><td>BOOLEAN</td><td>NN</td></tr><tr><td>save_card_result</td><td>カード保存結果</td><td>VARCHAR(20)</td><td>NN</td></tr><tr><td>cancelled_at</td><td>キャンセル日時</td><td>TIMESTAMPTZ(3)</td><td>NULL可</td></tr><tr><td>cancel_reason</td><td>キャンセル理由</td><td>VARCHAR(200)</td><td>NULL可</td></tr><tr><td>version</td><td>版情報</td><td>BIGINT</td><td>NN</td></tr><tr><td>ordered_at</td><td>注文確定日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr><tr><td>updated_at</td><td>最終更新日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr><tr><td>order_create_operation_id</td><td>注文作成操作ID</td><td>VARCHAR(64)</td><td>NN / FK: operation_histories.operation_id (RESTRICT) / UK</td></tr></table></details><details><summary>order_items — 11カラム</summary><table><tr><th>物理名</th><th>論理名</th><th>型</th><th>制約</th></tr><tr><td>id</td><td>注文明細ID</td><td>BIGINT</td><td>NN / PK</td></tr><tr><td>order_id</td><td>注文ID</td><td>BIGINT</td><td>NN / FK: orders.id (CASCADE) / UK（複合）</td></tr><tr><td>line_number</td><td>明細番号</td><td>INTEGER</td><td>NN / UK（複合）</td></tr><tr><td>product_id</td><td>商品ID</td><td>BIGINT</td><td>NN / FK: products.id</td></tr><tr><td>product_name_snapshot</td><td>注文時商品名</td><td>VARCHAR(100)</td><td>NN</td></tr><tr><td>unit_price_excluding_tax_snapshot</td><td>注文時税抜単価</td><td>INTEGER</td><td>NN</td></tr><tr><td>tax_rate_snapshot</td><td>注文時消費税率(%)</td><td>SMALLINT</td><td>NN</td></tr><tr><td>unit_price_including_tax_snapshot</td><td>注文時税込単価</td><td>INTEGER</td><td>NN</td></tr><tr><td>quantity</td><td>数量</td><td>INTEGER</td><td>NN</td></tr><tr><td>subtotal_including_tax_snapshot</td><td>注文時税込明細小計</td><td>BIGINT</td><td>NN</td></tr><tr><td>created_at</td><td>登録日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr></table></details><details><summary>operation_histories — 13カラム</summary><table><tr><th>物理名</th><th>論理名</th><th>型</th><th>制約</th></tr><tr><td>operation_id</td><td>操作識別情報</td><td>VARCHAR(64)</td><td>NN / PK</td></tr><tr><td>operation_type</td><td>操作種別</td><td>VARCHAR(40)</td><td>NN</td></tr><tr><td>actor_type</td><td>実行主体区分</td><td>VARCHAR(20)</td><td>NN</td></tr><tr><td>actor_id</td><td>実行者識別子</td><td>VARCHAR(64)</td><td>NN</td></tr><tr><td>target_resource_id</td><td>対象リソースID</td><td>BIGINT</td><td>NULL可</td></tr><tr><td>operation_status</td><td>処理状態</td><td>VARCHAR(20)</td><td>NN</td></tr><tr><td>is_retryable</td><td>安全な再操作可否</td><td>BOOLEAN</td><td>NN</td></tr><tr><td>result_code</td><td>結果・エラーコード</td><td>VARCHAR(50)</td><td>NULL可</td></tr><tr><td>result_summary_json</td><td>応答要約データ</td><td>JSONB</td><td>NULL可</td></tr><tr><td>expires_at</td><td>有効期限</td><td>TIMESTAMPTZ(3)</td><td>NULL可</td></tr><tr><td>created_at</td><td>作成日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr><tr><td>updated_at</td><td>最終更新日時</td><td>TIMESTAMPTZ(3)</td><td>NN</td></tr><tr><td>request_hash</td><td>要求内容のハッシュ</td><td>CHAR(64)</td><td>NN</td></tr></table></details></section><p>編集：各図のMermaidコード、または付属のEC_ER_diagram.mdを使用してください。</p></main></html>
