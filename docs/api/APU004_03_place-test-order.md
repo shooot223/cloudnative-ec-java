@@ -1,5 +1,7 @@
 # APU004_03_テスト注文確定・モック決済・次回用配送先保存
 
+> 2026-11-16改訂：購入完了メールのSNS連携を反映。添付版を基に更新。
+
 作成日：2026-11-15。カード情報非保持版。
 
 ## 0. 処理フロー
@@ -17,7 +19,7 @@ flowchart TD
     H --> I["4.8 在庫減算・購入明細削除・操作成功記録"]
     I --> J{"注文TXのCOMMIT結果"}
     J -->|成功| K["4.9 次回用配送先保存・別TX"]
-    K --> L["4.10 通知ログ依頼・応答作成"]
+    K --> L["4.10 SNSへ購入完了メールイベントを送信"]
     J -->|未成立確定| X["5.1 ロールバック・失敗記録"]
     J -->|不明| Y["5.2 確定状態の再照会"]
     B -.->|入力NG| Z["3.2 共通例外返却"]
@@ -30,7 +32,7 @@ flowchart TD
     X --> Z
     Y --> Q["3.2 結果または例外返却"]
     R --> Q
-    L --> Q
+    L -->|SNS受付成功・例外を捕捉した場合とも| Q
 ```
 
 4.9の保存失敗、4.10の通知失敗では、成立済み注文をロールバックしない。
@@ -64,6 +66,8 @@ APU004_01の取得結果だけを信用せず、このAPIが注文成立条件�
 | 失敗記録TX | 確定した未成立／配送先保存失敗を記録 | 元TX終了後に開始。COMMIT不明を失敗へ変換しない |
 
 Business.execute自体はTXで全体を囲まない。別Beanの@TransactionalメソッドまたはTransactionTemplateで各境界を実装する。自己呼出しによるTXアノテーションの無効化を避ける。
+
+SNS PublishはECSのBusinessに追加実装する。通知の入口は本APIの4.10のみ。APU004_01・04・05からは発行しない。
 
 ## 2. リクエスト
 
@@ -304,7 +308,7 @@ FOR UPDATE;
 
 - MockPaymentServiceは外部通信を行わず、通常は成功を返す。カード番号等を引数に取らない。
 - テスト差替えで失敗した場合は注文TXをロールバック。実決済の補償取消は不要。
-- 外部通知・SQS送信はこのTXで行わない。
+- SNS Publish・メール送信はこのTXで行わない。SNS PublishはCOMMIT成功後の4.10で実装する。
 
 #### orders登録
 
@@ -398,16 +402,99 @@ saveAddress=falseなら実行しない。trueの場合は注文時のdeliveryAdd
 保存失敗が確定した場合は別の失敗記録TXで、操作行→注文行をロックし、まだPROCESSINGの場合だけsave_address_result=FAILED、version+1、updated_at更新、操作結果JSONも更新する。操作全体のSUCCEEDEDは変えない。
 DB障害で失敗記録もできなければPROCESSINGを維持し、応答は保存結果UNKNOWNとする。保存結果の例外はこの段階で捕捉し、共通例外へ注文失敗として投げ直さない。COMMIT結果不明時は新しい接続で結果を読み直すまで保存成功・失敗を断定しない。
 
-### 4.10 通知ログ依頼・応答作成
+### 4.10 SNSへ購入完了メールイベントを送信
 
-| 処理 | 内容 |
+**実装箇所：PlaceTestOrderBusiness。AWSによる自動転送ではなく、ECSのJavaコードからAWS SDKのSnsClient.publish()を呼び出す。** ControllerはSNS送信を行わない。
+
+#### 4.10.1 実行条件・値の取得元
+
+| 条件 | 処理 |
 | --- | --- |
-| 通知 | 注文TX成功後にSQSへ注文ID・操作ID・イベント種別ORDER_COMPLETEDを送信。住所・カード・メール等は送らない |
-| 送信失敗 | **共通機能使用：COM001_09 安全なログ出力**。注文成功は維持。利用者に再注文を求めない |
-| 受信側 | 注文ID・イベント種別で重複を識別。通知ログのみ。注文状態・在庫を変更しない |
-| 応答 | 6章のDTOを作成。保存失敗時もdata.orderStatusはORDER_RECEIVED |
+| この要求で新規注文を作成し、4.8のCOMMIT成功を確認済み | 4.9の終了後、本処理を1回呼び出す。配送先保存の成否には依存しない |
+| 4.4で既存成功結果を返す | SNSへ送信しない |
+| 注文未成立・ロールバック・COMMIT結果不明 | SNSへ送信しない。結果不明時は5.2で注文を確認し、通知の復旧は運用者が行う |
+| APU004_01・04・05による取得 | SNSへ送信しない |
 
-現行DBにはoutboxがないため、COMMIT直後のプロセス停止による通知漏れはこのAPI単体では保証しない。今回は通知ログのベストエフォート送信とする。確実な配信が必要になった時点でoutbox等を別途設計する。
+4.7でordersへ登録した以下の値を、注文TXメソッドの戻り値（CommittedOrderSnapshot）としてBusinessへ返す。TXプロキシまたはTransactionTemplateの処理がCOMMIT成功して戻った後だけ使用する。送信のための追加DB検索・DB更新は行わない。
+
+| イベント項目 | 型 | 設定値・DB項目 |
+| --- | --- | --- |
+| schemaVersion | integer | 1 |
+| eventType | string | ORDER_COMPLETED |
+| eventId | string | ORDER_COMPLETED:{orders.id} |
+| orderId | string | orders.idの10進文字列 |
+| operationId | string | orders.order_create_operation_id |
+| orderNumber | string | orders.order_number |
+| recipientEmail | string | orders.purchaser_email（登録時のusers.email。要求本文から受け取らない） |
+| totalAmountIncludingTax | string | orders.total_amount_including_taxの10進文字列 |
+| testOrder | boolean | true |
+
+住所・氏名・電話・カード・JWTを含めない。メールアドレスは注文時に保存した値を使用し、現在の会員情報へ置き換えない。購入者メールがSES確認済みかどうかを本APIから照会しない。
+
+#### 4.10.2 JSON作成・SNS Publish
+
+1. 上表からOrderCompletedEvent DTOを生成する。BAT001_01の入力契約に合わせる。
+2. JacksonのObjectMapperでJSONに変換する。文字列連結でJSONを作らない。UTF-8で4KiB以内であることを確認する。
+3. サーバー設定ORDER_COMPLETED_TOPIC_ARNを送信先とし、SnsClient.publish()を呼ぶ。
+4. 正常応答のMessageIdが取得できたらSNS受付成功とする。これはメール到着成功ではない。
+5. JSON変換失敗・設定欠損・SDK例外・応答欠損はこの処理内で捕捉し、4.10.3へ進む。
+6. 送信結果にかかわらず、成立済み注文について6章の正常DTOを返す。メール送信完了を待たない。
+
+| 設定 | 内容 |
+| --- | --- |
+| SNS_REGION | SNSトピックを作成したリージョン |
+| ORDER_COMPLETED_TOPIC_ARN | CDKからECSへ設定する対象トピックARN。クライアント指定不可 |
+| 認証 | ECSタスクロール。対象Topicへのsns:Publishを許可。固定アクセスキーをコードに持たない |
+| 通信 | ECSからSNS APIへHTTPS到達可能であること |
+| タイムアウト | API全体3秒、1試行2秒。SDK自動リトライ0回 |
+| TX | 注文TX・配送先保存TXの外。DBロックを保持して送信しない |
+
+Publish呼出箇所のJava例（SnsClient・ObjectMapperはDI、タイムアウト等はClient生成時に設定）：
+
+```java
+String message = objectMapper.writeValueAsString(event);
+PublishResponse response = snsClient.publish(
+    PublishRequest.builder()
+        .topicArn(orderCompletedTopicArn)
+        .message(message)
+        .build()
+);
+String snsMessageId = response.messageId();
+```
+
+上記を4.10.1の実行条件と例外捕捉の内側に実装する。SNSの購読設定でSQSへ配送し、Lambda（BAT001_01）がSES送信を行う。ECSからSQS／SESを直接呼ばない。
+
+送信JSON例：
+
+```json
+{
+  "schemaVersion": 1,
+  "eventType": "ORDER_COMPLETED",
+  "eventId": "ORDER_COMPLETED:501",
+  "orderId": "501",
+  "operationId": "4df45f8d-bb7a-4ce5-9d49-e5d0d5d34687",
+  "orderNumber": "ORD-501",
+  "recipientEmail": "buyer@example.com",
+  "totalAmountIncludingTax": "4460",
+  "testOrder": true
+}
+```
+
+#### 4.10.3 例外・ログ・復旧
+
+| 結果 | API返却・DBへの影響 | 復旧 |
+| --- | --- | --- |
+| SNS受付成功 | HTTP 200、注文成功、error=null | SQS／Lambdaが後続処理 |
+| 設定欠損・JSON変換失敗・権限不足等 | 注文成功維持。注文・在庫・カートを戻さない | 原因修正後、運用者が成立注文からイベントを再構成してSNSへ発行 |
+| SNSタイムアウト・応答不明 | 注文成功維持。SNS未受付とは断定しない | 発行ログ・AWS側の記録を確認。再発行は重複メールの可能性あり |
+| SNS受付後のLambda／SES失敗 | 注文成功維持。API応答は後から変更しない | BAT001_01のSQS再試行・DLQ復旧に従う |
+
+**共通機能使用：COM001_09 安全なログ出力。** requestId・eventId・orderId・operationId・取得できたSNS MessageIdと固定理由コードを記録する。失敗理由コードはORDER_NOTIFICATION_PUBLISH_FAILED、結果不明はORDER_NOTIFICATION_PUBLISH_UNKNOWN。JSON全体・メールアドレス・生のSDK例外文は記録しない。ログ失敗だけで再Publishしない。
+
+Outbox・配信結果DBは今回は追加しない。COMMIT直後や4.9処理中のプロセス停止では通知が漏れ得る。既存成功の再返却・GET結果照会から自動再送しない。運用者がorders.idとorder_create_operation_idで成立済み注文を特定して必要な通知のみ再投入する。SNS／SQSの重複配送と結果不明時の再投入による重複メールはデモとして許容する。
+
+SESはサンドボックス継続・解除申請なし。送信元とテスト購入者のアドレスをSESで事前確認する。アプリ独自のテスト宛先リストは設けない。宛先未確認でメールが拒否されても、注文を失敗扱いにせず利用者に再注文を求めない。
+
 
 ## 5. 例外・データ復旧
 
@@ -481,8 +568,14 @@ ECSで捕捉できた例外はHTTP 200、data=null、errorあり。項目チェ�
 | 配送先保存時にDB断 | 注文成功維持。保存結果不明ならUNKNOWN表示、再照会 |
 | 注文COMMIT後に応答断 | 結果照会で既存注文。二重減算なし |
 | カード項目を送信 | 未定義項目として拒否。値をログへ出さない |
+| 新規注文のCOMMIT成功 | 4.10でSNS Publishを1回実行し、recipientEmailはorders.purchaser_emailと一致 |
+| 注文ロールバック・既存成功結果の再返却 | SNS Publishを実行しない |
+| SNS Publish例外・タイムアウト | 注文成功維持、HTTP 200、error=null。安全なログのみ |
+| SESで宛先未確認 | Lambda側で送信失敗。APIの注文成功は維持 |
 
 ## 6. 返却項目
+
+SNS MessageIdやメールアドレス・配信状態をAPIレスポンスへ追加しない。SNS受付は配信完了ではない。通知失敗だけでdata=nullやerrorありに変更しない。
 
 ### 6.1 共通・結果項目
 

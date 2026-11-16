@@ -1,5 +1,7 @@
 # APU004_04_注文操作の結果照会
 
+> 2026-11-16改訂：購入完了メールのSNS連携を反映。添付版を基に更新。
+
 作成日：2026-11-15。APU004_03（カード情報非保持版）に対応。
 
 ## 0. 処理フロー
@@ -42,7 +44,7 @@ flowchart TD
 | Controller | OrderOperationController.getResult |
 | Business | GetOrderOperationResultBusiness.execute |
 | 参照テーブル | users、operation_histories、orders。成立済みの場合は補助的にcarts、cart_items |
-| DB更新・外部サービス呼出 | なし。Cognito属性取得・SQS送信・モック決済の実行なし |
+| DB更新・外部サービス呼出 | なし。Cognito属性取得・SNS／SQS送信・SES送信・モック決済の実行なし |
 | べき等キー | 新規発行・受付不要。照会対象の既存operationIdをパスで指定 |
 | TX | 操作・注文の照会は読取専用REPEATABLE READ。ロック句なし。カート数量は終了後の独立した参照 |
 | 応答 | ECSで捕捉可能な成功・例外はHTTP 200。data／errorで判定 |
@@ -57,6 +59,12 @@ flowchart TD
 | 「結果の再確認」押下 | 確認中のoperationId |
 
 一般の注文履歴検索や、カート操作の結果照会には使用しない。注文確定後にキャンセルされても、元の注文作成操作はSUCCEEDEDのままとする。
+
+### 1.2 購入完了メールとの境界
+
+本APIは注文操作の成立結果を照会するだけで、SNSイベントの発行・再発行、SES送信、配信状態確認は実行しない。SUCCEEDEDは注文成立を示し、メール到着を意味しない。通知失敗は注文失敗に変換しない。通知だけの復旧はAPU004_03の4.10.3およびBAT001_01に従い運用者が実施する。
+
+SESはサンドボックス継続（解除申請なし）。事前確認は運用者がSESで実施し、アプリ独自の宛先リストは設けない。メール送信はAPU004_03 → SNS → SQS → BAT001_01（Lambda）→ SESで行う。
 
 ## 2. リクエスト
 
