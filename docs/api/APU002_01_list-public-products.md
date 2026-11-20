@@ -129,32 +129,9 @@ Controllerに@Validを付けず、単項目・項目間チェックはBusiness�
 
 ### 4.2 カーソル・検索条件照合
 
-カーソル未指定ならlastId・expiresAtをnullとして4.3へ進む。
+**共通機能使用：COM001_12。** scope=APU002_01、条件・主体＝正規化済みkeyword。未指定は先頭。指定時はdecodeで検証した商品IDだけをSQLの境界に使う。権限・所有者は毎回別途確認。
 
-指定ありの場合は次の順で処理する。本機能内の専用実装とし、未定義の共通機能IDを割り当てない。
-
-| 順序 | 処理 | 不一致・不正時 |
-| --- | --- | --- |
-| 1 | 「.」で2要素に分割し、ペイロードと署名をBase64urlデコード | CURSOR_INVALID |
-| 2 | 元のペイロード部分のASCIIバイト列にHMAC-SHA256を計算 | 設定・暗号処理不備はINTERNAL_ERROR |
-| 3 | 署名が32バイトか、計算結果と定数時間比較で一致するか確認 | CURSOR_INVALID |
-| 4 | 検証済みペイロードをUTF-8 JSONとして厳密解析。重複・未知項目を拒否 | CURSOR_INVALID |
-| 5 | 下記の全項目を検証 | CURSOR_INVALID |
-| 6 | lastIdをLongに変換し検索条件へ設定 | 範囲外はCURSOR_INVALID |
-
-| ペイロード項目 | 型・条件 |
-| --- | --- |
-| v | 整数1 |
-| scope | 文字列APU002_01 |
-| lastId | 先頭0なしの正の10進文字列。1〜9223372036854775807 |
-| queryHash | 正規化済みkeywordのUTF-8バイト列をSHA-256で計算した64桁小文字hexと一致 |
-| exp | 整数のUTC Unix秒。現在時刻より未来、かつ現在から30分を超えない |
-
-- 署名キーは32バイト以上のランダム値を環境設定から読み込み、全ECSタスクで共有する。起動ごとの生成・ソース直書きは禁止。
-- キー変更時は既存カーソルが無効になる。先頭再取得で復旧する。
-- カーソルは暗号化していない。個人情報・認証情報・検索語の原文を入れない。
-- 検索語変更時はcursorを破棄して先頭から取得する。追加取得時も同じ正規化済みkeywordを送る。
-- 最終商品の行が削除・非公開になっていても、lastIdの行存在確認は不要。
+次ページがある場合のみ、返した最後の行からencode。追加取得時は初回の期限を引き継ぎ返却直前に再確認する。旧形式・不一致・期限切れはCURSOR_INVALID、fieldErrors=[]。
 
 ### 4.3 商品を最大37件検索
 
@@ -226,13 +203,18 @@ MyBatisの検索例：
 
 一覧データの不正を0円・0在庫に補完しない。本APIでは不正な明細を黙って除外せず全体エラーとする。応答用に商品の文字列をトリム・省略しない。
 
-| 判定順 | 条件 | availability | canAddToCart |
-| --- | --- | --- | --- |
-| 1 | sales_status=SUSPENDED | UNAVAILABLE | false |
-| 2 | ON_SALEかつstock_quantity=0 | SOLD_OUT | false |
-| 3 | ON_SALEかつstock_quantity>=1 | AVAILABLE | true |
+| 優先順 | 使用するDB項目 | 判定条件 | availability | stockQuantity（返却値） |
+| --- | --- | --- | --- | --- |
+| 1 | products.sales_status | sales_status = 'SUSPENDED' | UNAVAILABLE | null |
+| 2 | products.sales_status、products.stock_quantity | sales_status = 'ON_SALE' AND stock_quantity = 0 | SOLD_OUT | 0 |
+| 3 | products.sales_status、products.stock_quantity | sales_status = 'ON_SALE' AND stock_quantity BETWEEN 1 AND 10 | AVAILABLE | stock_quantityの実数 |
+| 4 | products.sales_status、products.stock_quantity | sales_status = 'ON_SALE' AND stock_quantity >= 11 | AVAILABLE | null |
 
-canAddToCartは取得時点の表示用情報。在庫確保や追加成功を保証しない。追加APIで再確認する。
+products.publish_status = 'PUBLIC'、products.is_deleted = FALSEは前段のSQLで絞り込み済み。上表はDBから取得した実在庫で判定し、返却用のstockQuantityへ変換してから判定しない。
+
+stockQuantityのnullは数量非公開を表す。DB在庫が欠損・不正な場合は従来どおりINTERNAL_ERRORとし、正常な数量非公開へ置き換えない。availabilityは取得時点の状態であり、追加成功・在庫確保は保証しない。カート追加APIで最新のDB値を再検証する。
+
+canAddToCartはDB列ではない。公開・未削除の商品でsales_status=ON_SALEかつstock_quantity>=1ならtrue。それ以外はfalse。追加時は再検証する。
 
 ### 4.5 画像URL・応答明細を作成
 
@@ -240,6 +222,9 @@ canAddToCartは取得時点の表示用情報。在庫確保や追加成功を�
 | --- | --- |
 | 税込価格 | DBのprice_including_taxをそのまま返す。税抜価格・税率の再計算を行わない |
 | 商品ID | Longを10進文字列へ変換 |
+| stockQuantity | 4.4の判定結果。0〜10またはnull |
+| canAddToCart | boolean。availabilityがAVAILABLEのときのみtrue |
+| availability | 4.4の判定結果。canAddToCartは同じ判定から導出 |
 | 商品名・概要 | 全文を返す。画面の20文字・30文字省略はフロントエンド担当 |
 | image_s3_key=NULLまたは空文字 | imageUrl=null |
 | image_s3_keyあり | 設定済みの画像配信ベースURLとキーからHTTPS URLを作成 |
@@ -351,9 +336,9 @@ HTTP 200、Content-Type=application/json、Cache-Control=no-store。共通応答
 | items[].summary | string・可 | 商品概要全文 |
 | items[].imageUrl | string・可 | HTTPS画像URL。取得不能時null |
 | items[].priceIncludingTax | number・不可 | 円単位の整数。通貨記号・カンマなし |
-| items[].stockQuantity | number・不可 | 0〜99999の整数 |
+| items[].stockQuantity | number・可 | 0〜10。11以上・販売停止はnull（数量非公開） |
+| items[].canAddToCart | boolean・不可 | availabilityがAVAILABLEのときのみtrue |
 | items[].availability | string・不可 | AVAILABLE／SOLD_OUT／UNAVAILABLE |
-| items[].canAddToCart | boolean・不可 | 取得時点の追加可否 |
 | hasNext | boolean・不可 | 続きの有無 |
 | nextCursor | string・可 | hasNext=true時のみ設定 |
 
@@ -370,9 +355,9 @@ HTTP 200、Content-Type=application/json、Cache-Control=no-store。共通応答
         "summary": "商品概要",
         "imageUrl": null,
         "priceIncludingTax": 1980,
-        "stockQuantity": 10,
-        "availability": "AVAILABLE",
-        "canAddToCart": true
+        "stockQuantity": null,
+        "canAddToCart": true,
+        "availability": "AVAILABLE"
       }
     ],
     "hasNext": false,

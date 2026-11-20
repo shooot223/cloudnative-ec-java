@@ -358,7 +358,7 @@ SCU-06ではstockQuantityが数値の場合だけ在庫上限を補助チェッ�
 | 発生条件 | HTTP | error.code | error.message |
 | --- | --- | --- | --- |
 | 未定義クエリ・ボディ・Cookie形式不正 | 200 | INVALID_REQUEST | リクエストの形式が正しくありません。 |
-| 会員未初期化 | 200 | USER_NOT_INITIALIZED | 会員情報の初期化が必要です。 |
+| 会員未初期化 | 200 | USER_NOT_INITIALIZED | 会員情報の準備が必要です。 |
 | 会員利用不可 | 200 | ACCOUNT_DISABLED／MEMBER_NOT_READY | COM001_05・共通エラー定義の対応文言 |
 | DB接続障害・タイムアウト等 | 200 | SERVICE_UNAVAILABLE | 処理を完了できませんでした。時間をおいて再試行してください。 |
 | 不正なDB状態・計算例外・想定外例外 | 200 | INTERNAL_ERROR | 処理を完了できませんでした。 |

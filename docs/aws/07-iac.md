@@ -26,10 +26,10 @@ Java、Node.js、CDK CLI、aws-cdk-lib、constructs、ビルドツールは実�
 | FoundationStack | 東京 | VPC・subnet・SG・ECR・S3・Hosted Zone新設時 | なし |
 | EdgeCertificateStack | us-east-1 | CloudFront用ACM | zone ID・DNS委任 |
 | DataAuthStack | 東京 | RDS・Secret・Cognito 2Pool | Foundation |
-| ApplicationStack | 東京 | ALB・東京ACM・ECS・踏み台・SQS/Lambda・監視 | Foundation、DataAuth、ECR image |
+| ApplicationStack | 東京 | JWT Authorizer・HTTP API・VPC Link・内部ALB・ECS・踏み台・SNS/SQS/Lambda/SES・監視 | Foundation、DataAuth、ECR image |
 | DeliveryStack | 東京 | CloudFront・OAC・配信設定・DNS | Application、S3、Edge certificate ARN |
 
-初期は5stackを上限目安とし、サービスごとに過剰分割しない。ApplicationがDeliveryの出力を要求しDeliveryがApplicationを要求する循環を作らない。ALB origin用ドメイン・専用header参照元は両者の共通入力として先に準備する。S3 bucket policyでDistribution ARNを使う場合、policy更新をDelivery側に寄せるなどして循環を回避する。
+ApplicationStackがHTTP API endpointを出力し、DeliveryStackのAPI originへ渡す。一方向の依存とし、S3 OACの許可は配信元Distribution ARNだけに限定する。
 
 ## 環境変数・設定（秘密値は含めない）
 
@@ -38,14 +38,14 @@ Java、Node.js、CDK CLI、aws-cdk-lib、constructs、ビルドツールは実�
 | projectName / environment | cloudnative-ec-java / dev案 |
 | accountId / region | 実際のIDは未確定 / ap-northeast-1案 |
 | hostedZoneId / domainName | 未確定・必須 |
-| siteDomain / originDomain | 未確定・別FQDN |
+| siteDomain / apiOrigin | viewer独自ドメイン／HTTP API endpoint |
 | edgeCertificateArn | us-east-1 stackの出力を渡す |
 | vpcCidr / availabilityZones | 01-network参照 |
 | taskCpu / taskMemoryMiB / desiredCount | 512 / 1024 / 1案 |
 | imageTagOrDigest | 初回push後に必ず指定 |
 | dbInstanceType / engineVersion | t4g.micro案 / 実装時固定 |
 | deletionProtection / logRetentionDays | true / 14案 |
-| adminSessionMaxAge | 未確定、案3600秒。会員は43200秒 |
+| user/adminTokenValidity | それぞれのCognito App Clientで設定。ECSアプリセッションTTLを設けない |
 | budgetAmount / notificationEmail | 未確定 |
 
 Resource命名：`project-environment-purpose`。長さ制限とS3のグローバル一意性を考慮し、必要ならaccount/region等をsuffixに追加。タグ：Project、Environment、ManagedBy=CDK、Owner。個人情報・秘密値をタグへ入れない。
@@ -82,7 +82,7 @@ DataAuthの削除・置換、証明書入替、CIDR変更、公開設定変更�
 
 ## Outputs
 
-サイトURL、ALB origin名、ECR URI、ECS cluster/service名、バケット名、Pool/Client ID、DB endpoint、Secret ARN、SQS/DLQ URL、CloudWatch log group名。パスワード・token・Cookie・専用origin header値は出力しない。
+サイトURL、HTTP API endpoint、各Pool/Client ID、内部ALB listener、ECSサービス、SNS Topic・Queue・DLQ・ロググループを出力。認証情報・宛先・Secret値は出力しない。
 
 ## 参考
 

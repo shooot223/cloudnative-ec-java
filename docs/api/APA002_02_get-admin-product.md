@@ -102,9 +102,9 @@ HTTP 200、dataに商品詳細、error=nullを返す。対象がない場合にd
 | --- | --- | --- | --- |
 | 1 | bodyPresent | falseであること | INVALID_REQUEST |
 | 2 | command.query | 空であること | INVALID_REQUEST |
-| 3 | productId | null・空文字でないこと | INVALID_REQUEST |
-| 4 | productId | `[1-9][0-9]{0,18}`に一致すること | INVALID_REQUEST |
-| 5 | productId | Long.parseLongで変換可能、1〜9223372036854775807 | INVALID_REQUEST |
+| 3 | productId | null・空文字でないこと | VALIDATION_ERROR |
+| 4 | productId | `[1-9][0-9]{0,18}`に一致すること | VALIDATION_ERROR |
+| 5 | productId | Long.parseLongで変換可能、1〜9223372036854775807 | VALIDATION_ERROR |
 
 - 前後空白のトリム、全角数字変換、符号除去は行わない。`001`・`+1`・`1.0`・`1e2`・空白付き値を拒否する。
 - URLデコードは共通受付済み。Businessで二重デコードしない。
@@ -230,8 +230,9 @@ availabilityはDBカラムではなく応答用の派生値。編集対象はpub
 
 | 発生条件 | error.code | error.message | fieldErrors |
 | --- | --- | --- | --- |
-| ボディあり、未知クエリ、商品ID形式・範囲不正 | INVALID_REQUEST | リクエストの内容が正しくありません。 | [] |
-| 管理者未登録・無効・権限なし | FORBIDDEN | このアカウントには管理画面へのアクセス権限がありません。 | [] |
+| ボディあり、未知クエリ | INVALID_REQUEST | リクエストの内容が正しくありません。 | [] |
+| 商品ID形式・範囲不正 | VALIDATION_ERROR | 入力内容をご確認ください。 | [] |
+| 管理者未登録・無効・権限なし | FORBIDDEN | この操作を実行する権限がありません。 | [] |
 | 商品不存在・論理削除済み | RESOURCE_NOT_FOUND | 指定された商品情報を表示できません。商品一覧からご確認ください。 | [] |
 | DB接続・タイムアウト等の一時障害 | SERVICE_UNAVAILABLE | 処理を完了できませんでした。時間をおいて再試行してください。 | [] |
 | SQL定義不備、取得値不正、設定不備、想定外例外 | INTERNAL_ERROR | 処理を完了できませんでした。 | [] |
@@ -245,7 +246,7 @@ ECSで捕捉して応答可能な場合はHTTP 200、data=nullとする。Gatewa
 | データ復旧 | 書込みがないため補償更新・ロールバック処理は不要 |
 | 一時障害・応答未受信 | 同じproductIdで再取得可能 |
 | RESOURCE_NOT_FOUND | SCA-03内の対象商品参照不可案内（AE02）と一覧への導線。空の編集フォームで代替しない |
-| INVALID_REQUEST | 不正IDの場合はSCA-03の参照不可案内へ。内部形式の詳細を画面に表示しない |
+| VALIDATION_ERROR | 不正IDの場合はSCA-03の参照不可案内へ。内部形式の詳細を画面に表示しない |
 | FORBIDDEN | 管理データを破棄しSCA-07へ |
 | 編集中の再取得 | 未保存入力を無断で上書きしない。画面側の確認操作で最新値を採用する |
 
@@ -258,7 +259,7 @@ ECSで捕捉して応答可能な場合はHTTP 200、data=nullとする。Gatewa
 | 未削除・公開商品 | 編集用の全項目を返す |
 | 未削除・非公開／販売停止／在庫0 | 正常取得。設定・実在庫が分かる |
 | 論理削除済み／不存在 | RESOURCE_NOT_FOUND |
-| ID=0・負数・先頭0・小数・Long範囲外 | INVALID_REQUEST、商品検索なし |
+| ID=0・負数・先頭0・小数・Long範囲外 | VALIDATION_ERROR、商品検索なし |
 | 未定義クエリ・{}ボディ | INVALID_REQUEST |
 | 管理者がDISABLED | 有効JWTでもFORBIDDEN |
 | 商品概要・詳細説明がnull | nullで正常返却 |

@@ -7,8 +7,9 @@ RDSのプライベート配置は確定。それ以外の数値は小規模検�
 | 項目 | 設定案 | CDKでの対応 |
 |---|---|---|
 | VPC | 10.20.0.0/16 / DNS support・hostnames有効 | ec2.Vpc |
-| Public-A | 10.20.0.0/24 / AZ-A | ALB、ECS、踏み台候補 |
-| Public-B | 10.20.1.0/24 / AZ-B | ALB、ECS配置候補 |
+| Public-A | 10.20.0.0/24 / AZ-A | ECS、踏み台候補 |
+| Public-B | 10.20.1.0/24 / AZ-B | ECS配置候補 |
+| App-A/B | 10.20.20.0/24・10.20.21.0/24、別AZ | 内部ALB・VPC Link ENI。local経路でECSへ |
 | DB-A | 10.20.10.0/24 / AZ-A | PRIVATE_ISOLATED |
 | DB-B | 10.20.11.0/24 / AZ-B | PRIVATE_ISOLATED |
 | Internet Gateway | 1つ | VPCへ接続 |
@@ -24,12 +25,13 @@ RDS Single-AZでもDB subnet groupには2AZのサブネットを含める。こ�
 
 | SG | 受信許可 | 送信許可案 |
 |---|---|---|
-| ALB | TCP443 / CloudFront origin-facing managed prefix list | TCP8080 / ECS SG |
+| VPC Link | なし（Gateway管理ENI） | TCP80 / 内部ALB SG |
+| 内部ALB | TCP80 / VPC Link SGのみ | TCP8080 / ECS SG |
 | ECS | TCP8080 / ALB SGのみ | TCP5432 / DB SG、TCP443 / 外部サービス |
 | DB | TCP5432 / ECS SG・踏み台SGのみ | 新規外向き接続は不要 |
 | 踏み台 | 受信ルールなし | TCP5432 / DB SG、TCP443 / SSM関連 |
 
-SGはステートフル。応答通信を許可するためだけの逆方向受信ルールは追加しない。NACLは初期は標準設定を使用し、細粒度の制御はSGに集約。CloudFrontのprefix listはクォータ消費が大きいためSGルール上限を確認する。これだけで自身のDistributionからのアクセスに限定できるわけではないため、ALBで専用origin headerも検証する。
+ALBはinternal。VPC Link専用SGだけを受信元とする。ECSの公開IPは外向き通信専用で、タスクへの直接受信は許可しない。
 
 ECS・EC2がPublic subnetからAWS API・ECR等にアクセスするにはPublic IPv4が必要。外向き通信のためのPublic IPと、外部からの受信許可は別。ECSはALB以外からの受信を許可しない。
 
@@ -43,7 +45,7 @@ SSMトンネルのDB通信内容をSession Managerログに残せるとは見な
 
 - RDSへ自宅等から直接到達しない。ECS・SSM経由の踏み台からのみ接続できる。
 - ECSのPublic IPへ直接8080で接続できない。
-- ALBの専用headerなしのリクエストは固定403。正規CloudFront経由は成功。
+- 内部ALBにインターネットから接続できず、Gateway→VPC Link経由だけで業務APIが動作する。
 - 踏み台の受信ポートはすべて閉鎖。停止・再起動後もSSM経由で接続可能。
 
 ## 参考

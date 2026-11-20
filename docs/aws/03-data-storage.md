@@ -21,7 +21,7 @@ DBのtimezoneはUTC。日時はtimestamptzを基本に、APIはUTCのISO8601、�
 
 ## セッション・スキーマ管理
 
-Spring Session JDBCのテーブルとアプリ独自の絶対期限情報をPostgreSQLで管理する。12時間の絶対期限とidle timeoutは別概念。idle設定だけで「ログインから12時間」を実装しない。
+会員・管理者は別Cognito Pool、JWTはGatewayで検証。RDSには認証セッション・カード情報を置かない。ゲストカートと操作履歴は業務データとして保持。
 
 マイグレーションツールでDDLを履歴管理し、リリース時の単一ジョブで実行する。各ECSタスクが競合して初期DDLを実行しない。CDKは業務テーブルや初期管理者パスワードを定義しない。
 
@@ -39,7 +39,7 @@ S3 website endpointは使わずREST originを使用。SSE-S3を初期案とす�
 
 ## 検証・復旧
 
-スナップショットから別DBへ復元できること、接続先Secret変更でアプリが切り替わることを確認。S3は過去version復元後にCloudFrontのキャッシュも更新する。DB復旧後はセッションを無効化して再ログインを求める運用を基本案とする。
+スナップショットから別DBへ復元できること、接続先Secret変更でアプリが切り替わることを確認。S3は過去version復元後にCloudFrontのキャッシュも更新する。DB復旧後はCognito subと業務データ・未解決操作との整合を確認する。
 
 ## 参考
 

@@ -1,8 +1,11 @@
 # ECサイト ER図
 
-作成日：2026-10-05。更新済みDB設計書の12テーブル・144カラム・14外部キーを基に作成。
+> 2026-11-15改訂：カード情報の入力・保存・選択・解除を廃止。モック決済と配送先保存は継続。
 
-元資料：[DB設計書](https://docs.google.com/spreadsheets/d/1Z0vjYRgUz5CAtnzGMfQ3tNxWlo-Geof-nJeexnSFCLI/edit)
+
+改訂日：2026-11-15。更新済みDB設計書の11テーブル・131カラム・13外部キーを基に作成。
+
+元資料：[DB設計書](https://docs.google.com/spreadsheets/d/1Ka2DV7_iX2cCcRSIbu7-sHf4spx2TAV8p5SXogauFX8/edit)
 
 ## 図の読み方
 
@@ -16,11 +19,11 @@
 ## 主要な補足
 
 - carts.user_idとguest_cart_tokenは片方のみ設定。会員は0〜1カート、ゲストカートには会員参照がない。
-- 保存配送先・保存テストカードは会員ごとに最大1件。テスト番号は全16桁を保持し、取得APIの表示項目はID・表示名・下4桁のみ。
+- 保存配送先は会員ごとに最大1件。カード情報は入力・保存・返却しない。
 - carts.pending_merge_cart_idは任意の自己参照。DB上は複数の参照元が同じカートを指せる。参照先がゲストであること・所有権はバックエンドで検証。
 - cart_merge_logs.source_cart_idは単独UNIQUE。同一ゲストカートの再試行は同じ統合履歴を更新。
 - orders.order_create_operation_idは必須FKかつUNIQUE。1操作につき注文は0〜1件。注文を持つ操作履歴は削除しない。
-- 注文時の商品名・価格・税率・配送先・カード情報はスナップショット。保存配送先・保存カードへのFKは設けない。
+- 注文時の商品名・価格・税率・配送先はスナップショット。保存配送先へのFKは設けない。
 - 注文画像はorder_items.product_idから現在の商品画像を参照する。商品は論理削除し、注文記録とのFKを維持。
 - 日時はTIMESTAMPTZ(3)でUTC保持、画面でJST表示。合計・小計・返金額はBIGINT。
 
@@ -48,10 +51,6 @@ erDiagram
         BIGINT id PK "NN / 保存配送先ID"
         BIGINT user_id FK, UK "NN / 会員ID"
     }
-    user_saved_test_cards {
-        BIGINT id PK "NN / 保存テストカードID"
-        BIGINT user_id FK, UK "NN / 会員ID"
-    }
     carts {
         BIGINT id PK "NN / カートID"
         BIGINT user_id FK, UK "NULL可 / 会員ID"
@@ -67,7 +66,6 @@ erDiagram
         BIGINT id PK "NN / 商品ID"
     }
     users ||..|o user_saved_addresses : "user_id"
-    users ||..|o user_saved_test_cards : "user_id"
     users o|..|o carts : "user_id"
     carts ||..o{ cart_items : "cart_id"
     products ||..o{ cart_items : "product_id"
@@ -184,16 +182,6 @@ erDiagram
         TIMESTAMPTZ(3) created_at "NN / 登録日時"
         TIMESTAMPTZ(3) updated_at "NN / 最終更新日時"
     }
-    user_saved_test_cards {
-        BIGINT id PK "NN / 保存テストカードID"
-        BIGINT user_id FK, UK "NN / 会員ID"
-        CHAR(16) card_number "NN / テストカード番号"
-        CHAR(4) last4_digits "NN / 下4桁"
-        VARCHAR(50) card_display_name "NN / カード表示名"
-        BIGINT version "NN / 版情報"
-        TIMESTAMPTZ(3) created_at "NN / 登録日時"
-        TIMESTAMPTZ(3) updated_at "NN / 最終更新日時"
-    }
     carts {
         BIGINT id PK "NN / カートID"
         BIGINT user_id FK, UK "NULL可 / 会員ID"
@@ -234,7 +222,6 @@ erDiagram
         TIMESTAMPTZ(3) updated_at "NN / 最終更新日時"
     }
     users ||..|o user_saved_addresses : "user_id"
-    users ||..|o user_saved_test_cards : "user_id"
     users o|..|o carts : "user_id"
     carts ||..o{ cart_items : "cart_id"
     products ||..o{ cart_items : "product_id"
@@ -316,16 +303,11 @@ erDiagram
         VARCHAR(100) recipient_building "NULL可 / 注文時・建物名等"
         VARCHAR(11) recipient_phone_number "NN / 注文時・電話番号"
         VARCHAR(50) payment_method_name "NN / 支払い方法表示名"
-        CHAR(16) test_card_number_snapshot "NN / 注文時カード番号"
-        VARCHAR(50) test_card_display_name "NN / 注文時カード表示名"
-        CHAR(4) test_card_last4 "NN / 注文時カード下4桁"
         VARCHAR(20) mock_payment_status "NN / モック決済状態"
         VARCHAR(20) mock_refund_status "NN / モック返金・取消状態"
         BIGINT mock_refund_amount "NULL可 / モック返金・取消額"
         BOOLEAN save_address_requested "NN / 配送先保存希望有無"
         VARCHAR(20) save_address_result "NN / 配送先保存結果"
-        BOOLEAN save_card_requested "NN / カード保存希望有無"
-        VARCHAR(20) save_card_result "NN / カード保存結果"
         TIMESTAMPTZ(3) cancelled_at "NULL可 / キャンセル日時"
         VARCHAR(200) cancel_reason "NULL可 / キャンセル理由"
         BIGINT version "NN / 版情報"

@@ -111,7 +111,7 @@ userId、cartId、productId、数量、価格は受け付けない。
 | --- | --- |
 | メソッド | deleteMemberCartItem |
 | 受付 | **共通機能使用：COM001_10 HTTP共通受付・JSON構文解析** |
-| Command | パス文字列、JSONツリー、クエリ、actorType=USER、共通認証済みsub |
+| Command | パス文字列、厳密変換済みの専用DTO、クエリ、actorType=USER、共通認証済みsub |
 | 呼出 | DeleteCartItemBusiness.execute(command) |
 
 ヘッダー・認証の共通検証は親Controller／共通受付に委ねる。個別Controllerに単項目チェック・ID変換・SQLを実装しない。
@@ -194,7 +194,7 @@ Content-Type: application/json
 | --- | --- |
 | メソッド | deleteGuestCartItem |
 | 受付 | **共通機能使用：COM001_10 HTTP共通受付・JSON構文解析** |
-| Command | パス文字列、JSONツリー、クエリ、actorType=GUEST、Cookie値・同名Cookie件数 |
+| Command | パス文字列、厳密変換済みの専用DTO、クエリ、actorType=GUEST、Cookie値・同名Cookie件数 |
 | 呼出 | DeleteCartItemBusiness.execute(command) |
 
 会員検索・Cognito属性取得はしない。この経路はCookieで指定されるゲストカートだけを操作する。
@@ -239,6 +239,8 @@ Cookieから所有者が分からない場合、operationIdだけで結果を開
 - 成功再送時にCookieの再同期が必要なら、現在の同一ACTIVEカート・未失効を確認し、現在のDB期限までの残時間だけ設定する。「再送時から7日」に延長しない。
 - Cookie／応答の送信失敗で、コミット済み明細を再作成しない。
 
+共通機能使用：COM001_10。JSON構造・未知項目・型不一致は受付でINVALID_REQUEST。BusinessがDTOの必須・値域・相関を検証し、違反はVALIDATION_ERROR。
+
 ## 4. Business：削除処理
 
 4.1〜4.8／4.9は1つのREAD COMMITTEDトランザクション。操作開始だけを別TXでコミットしない。
@@ -272,7 +274,8 @@ RETURNING operation_id;
 | --- | --- |
 | INSERT 1件 | 新規操作。4.3へ |
 | INSERT 0件 | operation_idで既存履歴を別SQLで取得 |
-| 主体・種別・ハッシュ不一致 | IDEMPOTENCY_KEY_REUSED。既存結果を開示しない |
+| 他主体の操作ID | RESOURCE_NOT_FOUND。結果・存在を開示しない |
+| 同一主体で対象・種別・正規化内容が不一致 | IDEMPOTENCY_KEY_REUSED。更新しない |
 | すべて一致 | 4.2へ |
 | 競合待ちタイムアウト・DB例外 | 全ロールバック、5章へ |
 
@@ -459,7 +462,8 @@ FAILED保存をコミットした後に業務例外へ変換する。SQL例外�
 | 版不一致 | VERSION_CONFLICT | 情報が更新されています。最新の内容をご確認ください。 |
 | 統合未完了 | BUSINESS_RULE_VIOLATION | カート情報の引き継ぎが完了していません。再試行してください。 |
 | 失効・状態変更 | BUSINESS_RULE_VIOLATION | カート情報が変更されています。最新の内容をご確認ください。 |
-| 操作キーの別内容利用 | IDEMPOTENCY_KEY_REUSED | 同じ操作識別子で異なるリクエストが送信されました。 |
+| 他主体の操作ID | RESOURCE_NOT_FOUND | 指定された情報を表示できません。 |
+| 同一主体で対象・種別・正規化内容が不一致 | IDEMPOTENCY_KEY_REUSED | 同じ操作識別子で異なるリクエストが送信されました。 |
 | 共通Origin等検証NG | CSRF_VALIDATION_FAILED | 操作を確認できませんでした。画面を再読み込みしてください。 |
 | DB接続障害・ロックタイムアウト・デッドロック | SERVICE_UNAVAILABLE | 処理を完了できませんでした。時間をおいて再試行してください。 |
 | 不正DB値・SQL不備・計算異常 | INTERNAL_ERROR | 処理を完了できませんでした。 |

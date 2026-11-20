@@ -114,7 +114,7 @@ public record ValidateCartForCheckoutRequest(
 | --- | --- |
 | メソッド | CartCheckoutValidationController.validateForCheckout |
 | 解析 | **共通機能使用：COM001_10 HTTP共通受付・JSON構文解析** |
-| Command | 共通認証済みsub、JSONツリー、クエリ |
+| Command | 共通認証済みsub、厳密変換済みの専用DTO、クエリ |
 | 呼出 | ValidateCartForCheckoutBusiness.execute(command) |
 
 ヘッダー・アクセストークンの共通検証は親Controller／共通受付に委ねる。個別ControllerでJWT検証、DTO単項目検証、Long変換、DB参照を行わない。
@@ -130,6 +130,8 @@ JWT不正・未指定をゲスト経路へ切り替えない。
 | Cookie | 発行・更新・削除しない |
 
 読取TXが終了してから応答する。途中まで取得した商品や部分合計を例外応答に混在させない。
+
+共通機能使用：COM001_10。JSON構造・未知項目・型不一致は受付でINVALID_REQUEST。BusinessがDTOの必須・値域・相関を検証し、違反はVALIDATION_ERROR。
 
 ## 4. Business
 

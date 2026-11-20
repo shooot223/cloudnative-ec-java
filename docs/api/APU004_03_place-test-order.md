@@ -77,7 +77,7 @@ SNS PublishはECSのBusinessに追加実装する。通知の入口は本APIの4
 | --- | --- | --- | --- |
 | ヘッダー | Authorization | ○ | Bearer会員アクセストークン |
 | ヘッダー | Content-Type | ○ | application/json |
-| ヘッダー | Idempotency-Key | ○ | 共通受付で検証済みの操作識別子。DB格納上限64文字 |
+| ヘッダー | Idempotency-Key | ○ | 共通受付で検証済みの操作識別子。入力は36文字の小文字UUID v4。DB格納上限64文字とは区別 |
 | パス・クエリ | なし | — | クエリを受け付けない |
 | ボディ | JSONオブジェクト | ○ | null・配列・未定義項目は不可 |
 
@@ -114,11 +114,11 @@ itemsの商品名・画像・在庫数は要求しない。buyer、userId、支�
 
 | 条件 | 判定 |
 | --- | --- |
-| cartItemIdまたはproductIdの重複 | INVALID_REQUEST |
+| cartItemIdまたはproductIdの重複 | VALIDATION_ERROR |
 | saveAddress=false | savedAddressId／savedAddressVersionは両方nullまたは省略のみ |
 | saveAddress=true・新規保存 | savedAddressId／savedAddressVersionは両方nullまたは省略 |
 | saveAddress=true・上書き | savedAddressId／savedAddressVersionは両方必須 |
-| 片方だけ指定 | INVALID_REQUEST |
+| 片方だけ指定 | VALIDATION_ERROR |
 | 配送先と注文者の氏名が異なる | 許可する |
 
 保存済み住所を使う場合もdeliveryAddress全項目を送る。savedAddressIdは今回注文の住所取得用ではなく、次回用保存の上書き対象を示す。住所実在確認・郵便番号と都道府県の外部照合は行わない。
@@ -177,7 +177,7 @@ Controllerで個別入力チェック、会員・カート検索、TX開始を�
 
 ### 4.1 個別入力チェック
 
-2.2・2.3を実行する。違反時はINVALID_REQUESTと項目パス付きfieldErrorsを返し、DBへ書き込まない。
+2.2・2.3を実行する。構造・型不正は共通受付でINVALID_REQUEST。必須・範囲・相関違反時はVALIDATION_ERRORと項目パス付きfieldErrorsを返し、DBへ書き込まない。
 正規化後のCommandを以降で共用する。空白除去前の住所や要求本文全体をログ出力しない。
 
 ### 4.2 会員取得・利用状態判定
@@ -233,7 +233,8 @@ ON CONFLICT (operation_id) DO NOTHING;
 | --- | --- |
 | 挿入1件・受付COMMIT成功 | この要求だけが4.5を実行 |
 | 挿入0件 | operation_idで既存行取得。種別・主体・hash一致時のみ4.4 |
-| 主体・種別・hash不一致 | CONFLICT。既存の注文IDや結果を開示しない |
+| 他主体 | RESOURCE_NOT_FOUND。既存結果・注文IDは開示しない |
+| 同一主体で種別・hash不一致 | IDEMPOTENCY_KEY_REUSED。処理しない |
 | 受付COMMIT不明 | 注文TXへ進まない。5.2へ |
 
 同じキーを再使用して新しい注文を作らない。受付TXで競合待ちがタイムアウトした場合も、成功・未成立を断定せず再照会する。
@@ -527,11 +528,11 @@ SESはサンドボックス継続・解除申請なし。送信元とテスト�
 
 1. 復旧TXで対象operation_historiesをFOR UPDATE NOWAIT。取得できなければ稼働中の可能性があるため終了する。
 2. operation_type・主体・hash・現在状態を検証し、ordersをorder_create_operation_idで照会する。
-3. 注文なし／PROCESSINGならFAILED・is_retryable=trueへ更新してCOMMIT。以後、遅れて来た元の処理は4.5のPROCESSING再確認で停止する。
+3. 15分は調査開始の目安。操作行ロック下で注文・業務更新がなく、元処理が確定済み行を再実行できず、実行終了を確認できた場合のみFAILED・is_retryable=trueへ更新してCOMMIT。以後、遅れて来た元の処理は4.5のPROCESSING再確認で停止する。
 4. 成立注文ありなら、操作成功との原子性を確認する。不整合は自動で注文・在庫を再構築せず調査する。
 5. 注文SUCCEEDEDかつ配送先PROCESSINGなら4.9を再開できる。新しい配送先を古い版で上書きせず、競合時は保存だけFAILEDとする。
 
-通常のGET結果照会は更新を行わない。復旧処理の自動スケジューラは本APIの実装範囲に含めず、初期実装は運用から同じ復旧Serviceを実行する。未成立を単なる時間経過・カートが空・履歴一覧にないことで判断しない。
+通常のGET結果照会は更新を行わない。復旧処理の自動スケジューラは本APIの実装範囲に含めず、初期実装は権限を限定したECS単発タスクのCLIで、operationIdを指定して同じ復旧Serviceを実行する。注文と履歴の対応を特定できない場合はPROCESSINGを維持。注文作成・メール送信は再実行しない。未成立を単なる時間経過・カートが空・履歴一覧にないことで判断しない。
 
 ### 5.3 例外と返却
 
@@ -539,11 +540,11 @@ SESはサンドボックス継続・解除申請なし。送信元とテスト�
 
 | 条件 | error.code | message | 後続 |
 | --- | --- | --- | --- |
-| 入力不正 | INVALID_REQUEST | 入力内容をご確認ください。 | fieldErrorsの項目を修正 |
+| 業務入力不正 | VALIDATION_ERROR | 入力内容をご確認ください。 | fieldErrorsの項目を修正 |
 | 会員未初期化 | USER_NOT_INITIALIZED | 会員情報の準備が必要です。 | 会員初期化 |
 | 会員利用不可 | ACCOUNT_DISABLED／MEMBER_NOT_READY | COM001_05の文言 | 注文不可 |
 | 本人カートなし | RESOURCE_NOT_FOUND | 対象のカートを確認できませんでした。 | カート再取得 |
-| 同一キーで要求・主体・種別不一致 | CONFLICT | 同じ操作識別情報で異なる処理は実行できません。 | 自動再送しない |
+| 同じ主体・キーで要求／種別が異なる | IDEMPOTENCY_KEY_REUSED | 同じ操作識別情報を再利用できません。 | 再送しない |
 | カート・単価・総額の変化 | CONFLICT | 注文内容が変更されています。最新の内容をご確認ください。 | 未成立確定後に再確認 |
 | 空／統合未完了／在庫不足／販売不可 | BUSINESS_RULE_VIOLATION | カートの内容または引き継ぎ状態をご確認ください。 | 未成立確定後に修正 |
 | テスト用モック失敗 | BUSINESS_RULE_VIOLATION | テスト決済に失敗したため、注文は成立していません。 | 未成立確定後に再試行 |
@@ -587,7 +588,7 @@ SNS MessageIdやメールアドレス・配信状態をAPIレスポンスへ追�
 | error.code / message | string | 5.3の例外分類・文言 |
 | error.fieldErrors | array | 入力エラー時のみfield／message。それ以外[] |
 | data.operationId | string | 操作識別子 |
-| data.operationStatus | string | SUCCEEDED／PROCESSING／FAILED |
+| data.operationStatus | string | SUCCEEDED／PROCESSING。確定失敗はerror |
 | data.resultCode | string / null | ORDER_COMPLETED／保存済み失敗コード／処理中null |
 | data.isRetryable | boolean | FAILEDかつ安全な新規操作を許可する場合のみtrue |
 | data.order | object / null | 成立時のみ。本人の注文情報 |
@@ -595,7 +596,7 @@ SNS MessageIdやメールアドレス・配信状態をAPIレスポンスへ追�
 | data.addressSaveResult | string | SUCCEEDED／FAILED／PROCESSING／UNKNOWN／NOT_APPLICABLE |
 | data.message | string | 結果の案内文言 |
 
-UNKNOWNはDB保存値ではなく保存結果を確認できない応答状態。PROCESSING／FAILEDの操作で注文未成立の場合、addressSaveResultはNOT_APPLICABLE。同一キーのFAILED再送は正常な「既存結果取得」としてdataで返す。
+UNKNOWNはDB保存値ではなく保存結果を確認できない応答状態。PROCESSING／FAILEDの操作で注文未成立の場合、addressSaveResultはNOT_APPLICABLE。同一キーのFAILED再送はdata=null、保存済みerrorを返す。結果照会GETのみdata.operationStatus=FAILED、error=null。
 
 ### 6.2 order・cart
 
@@ -667,7 +668,7 @@ UNKNOWNはDB保存値ではなく保存結果を確認できない応答状態�
   "requestId": "req-order-003",
   "data": null,
   "error": {
-    "code": "INVALID_REQUEST",
+    "code": "VALIDATION_ERROR",
     "message": "入力内容をご確認ください。",
     "fieldErrors": [
       {"field": "deliveryAddress.postalCode", "message": "郵便番号は7桁の数字で入力してください。"}

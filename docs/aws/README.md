@@ -24,12 +24,12 @@ AWS CDK v2（Java）で構築するための設定・依存関係・責務・検
 
 - フロントエンド：HTML・CSS・JavaScript。React・TypeScriptは使用しない。
 - バックエンド：Java / Spring Boot。AWS CDKもJavaで記述するが、別プロジェクトとする。
-- 認証：独自画面 → バックエンド → Cognito。ユーザー用と管理者用のUser Poolを分離。
+- 独自画面でAmplify Authを使用し、会員・管理者は別Cognito Pool。保護APIはGatewayでJWTを確認。
 - 会員のメール確認：Cognito標準メール・標準文面。確認完了後はログイン画面へ戻り、自動ログインしない。
-- 会員セッション：ログインから最大12時間。操作による延長なし。PostgreSQLで保存し、Cookieにはセッション識別子を保持。
+- ログイン状態はAmplify AuthとCognitoのトークン期限に従う。ECSはステートレス、RDSに認証セッションを保存しない。
 - RDSはプライベート配置。DB管理はEC2踏み台を使用。Route 53・ACMを採用。
 - ゲストカート：最後の正常な更新から7日。参照では延長しない。会員のログアウトで会員カートを削除しない。
-- 決済・カード保存はモック。実際の決済・請求・発送・購入完了メール送信なし。
+- 決済処理のみモック。カード情報は入力・保存しない。実決済・発送なし。成立済み注文のメールはSESサンドボックスで検証済みの購入者宛先に送る。
 - 注文受付→手配中を含む注文状況変更は管理者操作。SQSによる自動更新なし。
 
 ## 基本構成案
@@ -40,12 +40,16 @@ AWS CDK v2（Java）で構築するための設定・依存関係・責務・検
 flowchart TD
   Browser["HTML / CSS / JavaScript"] --> CF[CloudFront]
   CF -->|静的ファイル| S3["S3 / OAC"]
-  CF -->|API・Cookie| ALB[ALB]
+  CF --> G["API Gateway：公開／会員JWT／管理者JWT"]
+  G --> V["VPC Link"]
+  V --> ALB["内部ALB"]
   ALB --> ECS["ECS / Spring Boot"]
-  ECS -->|認証・更新| Cognito["Cognito / 2 Pools"]
-  ECS -->|業務データ・セッション| RDS["RDS PostgreSQL"]
-  ECS -->|注文成立後のログイベント| SQS[SQS]
-  SQS --> Lambda["Lambda / 通知ログ"]
+  Browser -->|Amplify Auth| Cognito["Cognito / 2 Pools"]
+  ECS -->|業務データ| RDS["RDS PostgreSQL"]
+  ECS -->|注文コミット後Publish| SNS[SNS]
+  SNS --> SQS[SQS]
+  SQS --> Lambda[Lambda]
+  Lambda --> SES[SES]
   Operator[管理者端末] --> SSM[Session Manager]
   SSM --> EC2[踏み台EC2]
   EC2 --> RDS
@@ -58,8 +62,8 @@ DNSはRoute 53、TLS証明書はACM。ログ・メトリクスはCloudWatch。�
 | IaCが管理 | アプリ・運用が管理 |
 |---|---|
 | VPC・SG・RDS本体・バックアップ設定 | DBスキーマのマイグレーション、税計算、在庫ロック |
-| Cognito Pool / App Client / Group | ログイン、Cookie、CSRF、12時間絶対期限、カート統合 |
-| SQS / DLQ / Lambda / IAM | イベントの内容・重複処理防止、通知ログ処理 |
+| Cognito Pool / App Client / JWT Authorizer | 認証とトークン期限、ゲストCookieのOrigin確認、業務認可 |
+| SNS / SQS / DLQ / Lambda / SES / IAM | 注文成立後の購入完了メール、重複・結果不明の運用 |
 | ECS / ALB / CloudFront / S3 | アプリイメージ・静的ファイルのリリース |
 | 管理者Pool・権限設定の枠 | 初期管理者1名の作成とパスワード設定 |
 
@@ -72,11 +76,11 @@ DNSはRoute 53、TLS証明書はACM。ログ・メトリクスはCloudWatch。�
 | リージョン | 主系ap-northeast-1、配信用ACM us-east-1 | 案 |
 | CIDR・AZ | 01-networkの表。既存ネットワークと重複しないこと | 案 |
 | ECS・DB容量 | 02/03の初期サイズ。負荷確認後に調整 | 案 |
-| 管理者セッション期限 | 会員とは別設定。初期案1時間、管理者1名 | 未確定 |
+| 管理者トークン期限 | 管理者用App Clientで定義。旧アプリセッション期限は適用しない | 認証共通設計 |
 | 稼働時間・月額上限 | 常時か検証時のみか、通知先と予算額 | 未確定 |
 | 管理者MFA | 初期導入の有無。設計・画面追加への影響を確認 | 未確定 |
 | Java・CDK・PostgreSQLバージョン | 実装時の対応状況を確認して具体バージョン固定 | 未確定 |
-| イベント送信の再送保証 | 06-operationsの通知ログ許容範囲を確認 | 案 |
+| イベント送信の再送保証 | SNS受付結果不明は自動再発行しない。注文と通知を独立させる | 確定 |
 
 ## 更新履歴
 

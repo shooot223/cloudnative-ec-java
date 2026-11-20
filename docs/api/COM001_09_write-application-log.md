@@ -53,6 +53,7 @@ flowchart TD
 | step | String | 任意 | 設計書の処理番号。例：3.2。F01等を別途採番しない |
 | requestId | String | 任意 | 明示された内部コンテキストのID。省略時はMDCから取得 |
 | operationId | String | 任意 | 形式・長さの検証済み操作識別子 |
+| eventId・orderId・snsMessageId・sqsMessageId・sesMessageId・reasonCode | String | 各任意 | 発行・取得できた文脈だけ。検証済み識別子・定義済み理由のみ許可。 |
 | outcome | Enum | 条件付き | IN_PROGRESS／SUCCESS／BUSINESS_ERROR／SYSTEM_ERROR／UNKNOWN |
 | errorCode | String | 任意 | 共通エラー一覧のコード |
 | dbStatus | Enum | 必須 | 3.4で定義する状態。既定値UNKNOWN |
@@ -76,6 +77,8 @@ flowchart TD
 | REQUEST_END | 共通受付の終了処理。例外経路も含む | 1要求につき1回 |
 
 受付Filterが終了を記録する前に、例外処理は安全なoutcome・errorCodeを要求コンテキストへ設定する。HTTP 200だけを見てSUCCESSにしない。REQUEST_ENDはサーバー処理終了を意味し、ブラウザの受信成功を保証しない。
+
+SNS受付、SQS受信、SES受付を区別する。SES MessageIdは配達確認ではない。宛先・イベント本文・SDK例外原文を記録しない。
 
 ## 3. 処理詳細
 
@@ -244,6 +247,7 @@ eventには型付きの安全な項目のみ設定する。Businessでログ出�
 | functionId | String | 機能IDまたはUNKNOWN |
 | step | String | 設計書の節番号。未指定時は省略 |
 | operationId | String | 検証済み操作ID。未指定・不正時は省略 |
+| eventId・orderId・snsMessageId・sqsMessageId・sesMessageId・reasonCode | String（各任意） | 発行・取得できた文脈だけ。検証済み識別子・定義済み理由のみ許可。 |
 | outcome | String | 業務・処理結果 |
 | errorCode | String | 分類済みコード。なしの場合は省略 |
 | dbStatus | String | 対象DB処理の確定状況 |

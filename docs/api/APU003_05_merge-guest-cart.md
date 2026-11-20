@@ -114,7 +114,7 @@ Content-Type: application/json
 | --- | --- |
 | メソッド | CartMergeController.mergeGuestCart |
 | 解析 | **共通機能使用：COM001_10 HTTP共通受付・JSON構文解析** |
-| Command | 共通認証済みsub、JSONツリー、クエリ、Cookie値・同名Cookie件数 |
+| Command | 共通認証済みsub、厳密変換済みの専用DTO、クエリ、Cookie値・同名Cookie件数 |
 | 呼出 | MergeGuestCartBusiness.execute(command) |
 
 ヘッダー・認証・Originの共通検証は親Controller／共通受付に委ねる。個別Controllerで再検証しない。ボディの入力チェック・会員検索・DB操作はBusinessで実施する。
@@ -138,6 +138,8 @@ Set-Cookie: ec_guest_cart_token=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=
 
 フロントは統合中にゲスト追加・新Cookie発行を並行実行しない。Cookie解除の遅延応答で新しいCookieを消さないよう、別タブを含め共通認証・カート同期で直列化する。
 本APIで会員・管理者の認証情報を失効させない。
+
+共通機能使用：COM001_10。JSON構造・未知項目・型不一致は受付でINVALID_REQUEST。BusinessがDTOの必須・値域・相関を検証し、違反はVALIDATION_ERROR。
 
 ## 4. Business：受付・統合準備
 
@@ -181,7 +183,8 @@ USER
 ```
 
 - 要求ボディはoperationIdのみ。統合元は準備時にサーバーで選び、履歴のcontextへ固定するためハッシュにCookieを含めない。
-- 主体・種別・ハッシュ不一致はIDEMPOTENCY_KEY_REUSED。既存結果や統合元を開示しない。
+- 他主体の操作ID（所有者不一致）はRESOURCE_NOT_FOUND。既存結果や統合元を開示しない。
+- 同一主体で対象・種別・正規化内容が不一致の場合はIDEMPOTENCY_KEY_REUSED。更新しない。
 - 一致しSUCCEEDED／FAILEDは4.4。PROCESSINGは保存済みcontextで5章へ。
 - 0件は4.5。並行要求に備え4.6でも一意制約を使用する。
 
@@ -290,6 +293,8 @@ contextのIDは文字列。Cookie・JWT・氏名・メールは保存しない�
 会員カートなしならcartId・version=null、items=[]、合計"0"、checkoutEligible=false、merge.status=NONE。
 対象ありの場合はPROCESSING・context・pending・統合ログを同時コミットして5章へ。
 準備TX中のエラーは全体をロールバックする。
+
+ログアウトで端末Cookieを解除した後も、準備TXで結び付けた会員・統合ログ・元カートIDで本人だけが再開できる。準備前に通信が途絶えた場合は紐付け済みとみなさない。別の会員がCookieだけでこの記録を引き継ぐことはできない。
 
 ## 5. Business：統合実行トランザクション
 
@@ -462,7 +467,8 @@ sourceのトークンを操作結果JSONに複製しない。source親の削除�
 | 会員未初期化 | USER_NOT_INITIALIZED | 会員情報の準備が必要です。 |
 | 会員利用不可 | ACCOUNT_DISABLED／MEMBER_NOT_READY | COM001_05の対応文言 |
 | 別会員への紐付け・別pending競合 | BUSINESS_RULE_VIOLATION | カート情報を引き継げません。最新のカート状態をご確認ください。 |
-| 操作キーの別主体・別用途利用 | IDEMPOTENCY_KEY_REUSED | 同じ操作識別子で異なるリクエストが送信されました。 |
+| 他主体の操作ID | RESOURCE_NOT_FOUND | 指定された情報を表示できません。 |
+| 同一主体で対象・種別・正規化内容が不一致 | IDEMPOTENCY_KEY_REUSED | 同じ操作識別子で異なるリクエストが送信されました。 |
 | DB接続・待機・デッドロック | SERVICE_UNAVAILABLE | カート情報の引き継ぎを完了できませんでした。再試行してください。 |
 | 不正DB値・計算異常・想定外例外 | INTERNAL_ERROR | カート情報の引き継ぎを完了できませんでした。 |
 | 共通Origin等検証NG | CSRF_VALIDATION_FAILED | 操作を確認できませんでした。画面を再読み込みしてください。 |

@@ -211,7 +211,7 @@ products.publish_status = 'PUBLIC'、products.is_deleted = FALSEは前段のSQL�
 
 stockQuantityのnullは数量非公開を表す。DB在庫が欠損・不正な場合は従来どおりINTERNAL_ERRORとし、正常な数量非公開へ置き換えない。availabilityは取得時点の状態であり、追加成功・在庫確保は保証しない。カート追加APIで最新のDB値を再検証する。
 
-canAddToCartは返却しない。フロントはavailability === 'AVAILABLE'で追加ボタンの表示・操作可否を決める（通信中などの操作抑止は別途行う）。
+canAddToCartはDB列ではない。公開・未削除の商品でsales_status=ON_SALEかつstock_quantity>=1ならtrue。それ以外はfalse。追加時は再検証する。
 
 数量入力欄は1以上の整数とする。stockQuantityが1〜10なら補助的な上限として使用する。nullなら在庫によるmax属性・加算ボタン上限を設定せず、前回のmax属性も除去する。nullを0に変換しない。商品別の購入上限は追加しない。カート内既存数量を含めた追加可否はAPU003_02で実在庫と照合する。
 
@@ -225,6 +225,7 @@ canAddToCartは返却しない。フロントはavailability === 'AVAILABLE'で�
 | description | DB値。改行を保持、nullはnullのまま |
 | priceIncludingTax | 保存済みprice_including_tax |
 | stockQuantity | 4.3の返却判定。0〜10またはnull |
+| canAddToCart | boolean。availabilityがAVAILABLEのときのみtrue |
 | availability | 4.3の判定結果 |
 | imageUrl | 下記の画像URL生成結果 |
 
@@ -330,6 +331,7 @@ HTTP 200、Content-Type=application/json、Cache-Control=no-store。共通レス
 | imageUrl | string・可 | HTTPS画像URL。未設定・不正キーはnull |
 | priceIncludingTax | number・不可 | 円単位の整数、記号・カンマなし |
 | stockQuantity | number・可 | 0〜10。11以上・販売停止はnull（数量非公開） |
+| canAddToCart | boolean・不可 | availabilityがAVAILABLEのときのみtrue |
 | availability | string・不可 | AVAILABLE／SOLD_OUT／UNAVAILABLE |
 
 税抜価格・税率・論理削除理由・管理用版情報・S3キーは返さない。
@@ -347,6 +349,7 @@ HTTP 200、Content-Type=application/json、Cache-Control=no-store。共通レス
     "imageUrl": null,
     "priceIncludingTax": 1980,
     "stockQuantity": null,
+    "canAddToCart": true,
     "availability": "AVAILABLE"
   },
   "error": null
@@ -366,6 +369,7 @@ HTTP 200、Content-Type=application/json、Cache-Control=no-store。共通レス
     "imageUrl": null,
     "priceIncludingTax": 1980,
     "stockQuantity": 0,
+    "canAddToCart": false,
     "availability": "SOLD_OUT"
   },
   "error": null

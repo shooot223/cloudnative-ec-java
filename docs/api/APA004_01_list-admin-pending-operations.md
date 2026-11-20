@@ -21,7 +21,7 @@ flowchart TD
 | 項目 | 内容 |
 | --- | --- |
 | 機能ID／旧ID／物理名 | APA004_01／API-A17／list-admin-pending-operations |
-| エンドポイント | GET /api/v1/admin/operations?status=PROCESSING |
+| エンドポイント | GET /api/v1/admin/operations |
 | 利用画面 | SCA-02 商品管理一覧、SCA-03 商品登録・編集、SCA-05 注文詳細 |
 | 対象 | 管理者JWTと有効な管理者権限を確認できた本人の操作 |
 | DB | admins（共通機能）、operation_histories、product_image_uploadsを参照。書込み・行ロックなし |
@@ -34,16 +34,16 @@ flowchart TD
 | 場所 | 項目 | 必須 | 条件 |
 | --- | --- | --- | --- |
 | Header | Authorization | ○ | 管理者アクセストークン。ヘッダー検証は共通受付 |
-| Query | status | ○ | PROCESSINGの完全一致。1件のみ |
+| Query | status | 受付不可 | 状態はサーバー固定。指定時は未知項目として扱う |
 | Query | cursor | 任意 | 前回のnextCursor。先頭取得では省略 |
 | Body | なし | — | リクエストJSONなし。空オブジェクトも送信しない |
 
 ```http
-GET /api/v1/admin/operations?status=PROCESSING
+GET /api/v1/admin/operations
 Authorization: Bearer <管理者アクセストークン>
 ```
 
-追加取得は同じstatusに前回のnextCursorを付ける。管理者ID・操作種別・取得件数・並び順は指定しない。
+追加取得はcursorに前回のnextCursorだけを指定する。管理者ID・操作種別・取得件数・並び順は指定しない。
 
 ## 3. Controller
 
@@ -62,7 +62,7 @@ Authorization: Bearer <管理者アクセストークン>
 | 判定 | エラー |
 | --- | --- |
 | ボディあり、未知のクエリ、同じ項目の重複 | INVALID_REQUEST |
-| status未指定・空文字・固定値以外 | VALIDATION_ERROR |
+| status指定あり | INVALID_REQUEST。固定値や状態名をエラー本文に含めない |
 | cursor指定ありで空文字・形式不正・用途や主体の不一致・期限切れ | CURSOR_INVALID |
 | 正常 | 4.2へ。値のトリム・大文字変換はしない |
 
@@ -74,11 +74,11 @@ cursorの単項目形式は共通部品に渡し、管理者との照合は4.2�
 
 ### 4.3 続きの取得位置
 
-**共通機能使用：COM001_12 カーソル生成・検証（本API用のプロファイル追加が必要）。** 既存の注文一覧用キーは日時＋数値IDなので流用できない。本APIでは異なる2テーブルの文字列IDを扱う。以下をCursorCodecのプロファイル登録と型チェックに追加する。署名・有効期限の実装を本Businessに複製しない。
+**共通機能使用：COM001_12 カーソル生成・検証。** 既存の注文一覧用キーは日時＋数値IDなので流用できない。本APIでは異なる2テーブルの文字列IDを扱う。以下の登録済みプロファイルを使用する。署名・有効期限の実装を本Businessに複製しない。
 
 | 設定 | 本APIでの値 |
 | --- | --- |
-| scope／条件／主体 | APA004_01／status=PROCESSING／ADMIN＋認可済みadminId |
+| scope／条件／主体 | APA004_01／サーバー固定status=PROCESSING／ADMIN＋認可済みadminId |
 | 境界キー | created_at（UTC・ミリ秒）、source_rank（業務履歴＝1、画像＝0）、operation_id（小文字UUID v4）の3項目。すべて降順 |
 | ペイロード | v、scope、lastCreatedAt、lastSourceRank、lastOperationId、queryHash、actorHash、exp。rankは整数0または1。それ以外のキーを拒否 |
 | 共通仕様の適用 | 注文一覧と同じ条件・主体への署名付き照合、最大2048文字、初回から30分の期限を引き継ぐ |

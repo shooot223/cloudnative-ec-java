@@ -10,10 +10,10 @@ flowchart TD
     D --> E["4.3 要求ハッシュ生成"]
     E --> F["4.4 操作受付・既存結果判定"]
     F -->|既存操作| R["4.11 結果DTO作成"]
-    F -->|新規受付| G["4.5 共通機能使用：COM001_13"]
+    F -->|新規受付| G["4.5 入力単価の保持"]
     G --> H["4.6 操作行ロック"]
     H --> I["4.7 新画像の確認・ロック"]
-    I --> J["4.8 商品ロック・版照合"]
+    I --> J["4.8 商品ロック・版照合・単価比較"]
     J --> K["4.9 商品更新・画像紐付け"]
     K --> L["4.10 成功結果保存・コミット"]
     L --> R
@@ -63,7 +63,6 @@ flowchart TD
 | summary | string／null | — | 前後空白除去後200コードポイント以内。省略・null・空文字はnull |
 | description | string／null | — | 前後空白除去後2,000コードポイント以内。内部改行を保持。省略・null・空文字はnull |
 | priceExcludingTax | number | ○ | 整数、1〜9,999,999 |
-| taxRate | number | ○ | 整数、0〜32767。10は10%。税込結果のINTEGER範囲も確認 |
 | stockQuantity | number | ○ | 整数、0〜99,999。更新後の絶対数量 |
 | publishStatus | string | ○ | PUBLIC／PRIVATE |
 | salesStatus | string | ○ | ON_SALE／SUSPENDED |
@@ -72,7 +71,7 @@ flowchart TD
 
 summary・descriptionの省略は既存値維持ではなくクリアとなる。フロントは維持する値も送信する。画像はimageActionで明示し、省略による解除はしない。
 
-税率範囲はDB・COM001_13の保存可能範囲。画面の選択肢として上限値を推奨する意味ではない。未指定時の10補完はしない。
+税率範囲はDB・COM001_13の保存可能範囲。画面の選択肢として上限値を推奨する意味ではない。taxRateをクライアントから受け付けない。
 
 | imageAction | imageUploadOperationId | 更新後画像 |
 | --- | --- | --- |
@@ -98,7 +97,6 @@ Content-Type: application/json
   "summary": "更新後の概要です。",
   "description": "更新後の詳細説明です。\n改行を保持します。",
   "priceExcludingTax": 2000,
-  "taxRate": 10,
   "stockQuantity": 15,
   "publishStatus": "PUBLIC",
   "salesStatus": "ON_SALE",
@@ -161,7 +159,6 @@ Businessの結果DTOを親Controllerへ渡す。
   "summary": "更新後の概要です。",
   "description": "更新後の詳細説明です。\n改行を保持します。",
   "priceExcludingTax": 2000,
-  "taxRate": 10,
   "stockQuantity": 15,
   "publishStatus": "PUBLIC",
   "salesStatus": "ON_SALE",
@@ -228,14 +225,7 @@ TX-Aのコミット不明・待機タイムアウトでは商品更新を開始�
 
 ### 4.5 税込価格計算
 
-**共通機能使用：COM001_13 税込価格計算。**
-
-```java
-int priceIncludingTax = taxInclusivePriceCalculator.calculate(
-    command.priceExcludingTax(), command.taxRate());
-```
-
-検証済み税抜価格・整数税率を渡し、返却intを保存する。計算処理をBusinessへ重複実装しない。計算範囲外は商品未更新として5.2へ。
+**共通機能使用：COM001_13。** ここでは入力税抜単価を保持する。TX-Bで対象商品をロックし版を照合した後、既存税抜単価と比較する。価格不変なら既存税率・税込単価を維持。価格変更時のみサーバーの共通税率をeffectiveTaxRateとして再計算する。 設定欠落はINTERNAL_ERROR。税率・税込単価を要求ハッシュに含めず、適用値は商品と同じTXで保存する。
 
 ### 4.6 操作行ロック（TX-B開始）
 
@@ -284,7 +274,7 @@ S3再照合は行わない。VERIFIEDを使用可能状態として扱い、画�
 ### 4.8 商品取得・版照合
 
 ```sql
-SELECT id, version, image_s3_key, created_at
+SELECT id, version, image_s3_key, created_at, price_excluding_tax, tax_rate, price_including_tax
 FROM products
 WHERE id = #{productId,jdbcType=BIGINT}
   AND is_deleted = FALSE
@@ -307,12 +297,14 @@ FOR UPDATE;
 
 注文の在庫引当・キャンセルによる在庫戻しもproducts.versionを増加させる前提。編集画面表示後に在庫が変わっていれば更新を拒否し、古いstockQuantityによる上書きを防ぐ。
 
+価格比較・適用税率：4.5に従い、ロックした価格と入力を比較。変更時のみCOM001_13を呼び、Mapperへ計算済み値を渡す。
+
 ### 4.9 商品更新・新画像紐付け（TX-B内）
 
 | 更新項目 | 値 |
 | --- | --- |
 | name／summary／description | 正規化済み入力 |
-| price_excluding_tax／tax_rate | 入力 |
+| price_excluding_tax／tax_rate | 入力税抜単価／サーバー決定税率 |
 | price_including_tax | COM001_13の結果 |
 | stock_quantity | 入力された絶対数量 |
 | publish_status／sales_status | 入力 |
@@ -450,7 +442,7 @@ DB例外後の同じTXで失敗記録を書かない。コミット結果不明�
 
 ロールバックは他の注文等による正当な更新を取り消さない。S3画像も削除しない。REPLACEの失敗時、新画像は元のVERIFIEDへ戻り、清掃されていなければ再操作で利用できる。
 
-**APA002_08への引き継ぎ：** PRODUCT_UPDATEのPROCESSINGは、受付から15分以上経過し操作行をFOR UPDATE NOWAITで取得できた場合に、未完了としてFAILED・is_retryable=true・result_code=SERVICE_UNAVAILABLEへ確定可能。商品更新とSUCCEEDEDが同一TXであることが前提。遅れて元要求が再開しても4.6でFAILEDを検出し中止する。復旧時に現在の商品versionやupdated_atだけから元操作の成否を推測しない。
+**APA002_08への引き継ぎ：** PRODUCT_UPDATEのPROCESSINGは、対象処理の終了と未更新を確認し、受付から15分以上経過して操作行をFOR UPDATE NOWAITで取得できた場合に、未完了としてFAILED・is_retryable=true・result_code=SERVICE_UNAVAILABLEへ確定可能。商品更新とSUCCEEDEDが同一TXであることが前提。遅れて元要求が再開しても4.6でFAILEDを検出し中止する。復旧時に現在の商品versionやupdated_atだけから元操作の成否を推測しない。
 
 記録なしは未実行確定ではない。同じID・同じ内容の再送は受付の一意制約で吸収する。別IDでの自動再送は禁止。
 

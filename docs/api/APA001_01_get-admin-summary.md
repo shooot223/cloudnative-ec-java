@@ -137,7 +137,7 @@ role・statusのDBコード、cognito_sub、メールアドレス、JWT、登録
 | 条件 | error.code | error.message | fieldErrors |
 | --- | --- | --- | --- |
 | 不要なクエリ・ボディ | INVALID_REQUEST | 入力内容をご確認ください。 | [] |
-| 管理者未登録・無効・権限なし | FORBIDDEN | このアカウントには管理画面へのアクセス権限がありません。 | [] |
+| 管理者未登録・無効・権限なし | FORBIDDEN | この操作を実行する権限がありません。 | [] |
 | DB接続失敗・タイムアウト等の一時障害 | SERVICE_UNAVAILABLE | 処理を完了できませんでした。時間をおいて再試行してください。 | [] |
 | 多重取得・不正表示値・SQL／マッピング不備・予期しない例外 | INTERNAL_ERROR | 処理を完了できませんでした。 | [] |
 
@@ -230,7 +230,7 @@ SCA-06などの例外画面では各画面の遷移仕様を優先する。画�
   "data": null,
   "error": {
     "code": "FORBIDDEN",
-    "message": "このアカウントには管理画面へのアクセス権限がありません。",
+    "message": "この操作を実行する権限がありません。",
     "fieldErrors": []
   }
 }

@@ -56,7 +56,7 @@ Businessは共通処理から渡された会員用の検証済みsubを使用し
 
 | 項目 | 型 | 必須 | 制約 |
 | --- | --- | --- | --- |
-| cursor | string | 任意 | 未指定は先頭取得。指定時は1～1,024文字。内容の検証は4.3 |
+| cursor | string | 任意 | 未指定は先頭取得。指定時は1～2,048文字。内容の検証は4.3 |
 | リクエストボディ | — | なし | JSONリクエストなし |
 
 `limit`、`userId`、検索・並び替え条件は受け付けない。
@@ -109,11 +109,11 @@ Businessで`Validator.validate(requestDto)`を呼び、次のチェックを実�
 
 | 対象 | チェック | NG時 |
 | --- | --- | --- |
-| cursor | 未指定(null)は許可。指定時は1～1,024文字 | INVALID_REQUEST |
-| cursor | 半角英数字・ハイフン・アンダースコアのみ。空欄・空白・改行・前後空白・padding記号を許可しない。トリムしない | INVALID_REQUEST |
+| cursor | 未指定は先頭、指定時は1〜2048文字 | CURSOR_INVALID |
+| cursor | COM001_12が署名付き形式を検証。空文字・空白不可 | CURSOR_INVALID |
 | クエリ | cursorの重複指定、未定義のクエリ指定を拒否する | INVALID_REQUEST |
 
-DTOのcursorは`@Size(min=1,max=1024)`と`@Pattern(regexp="^[A-Za-z0-9_-]+$")`で検証する。両方ともnullは許可する。
+カーソルの長さ・形式・署名はCOM001_12で検証する（2048文字まで）。
 クエリの重複・未定義項目は、共通受付が保持するパラメータ名・値一覧をBusinessで確認する。
 
 ### 4.2 会員取得・利用可否確認
@@ -141,44 +141,9 @@ DTOのcursorは`@Size(min=1,max=1024)`と`@Pattern(regexp="^[A-Za-z0-9_-]+$")`�
 
 ### 4.3 継続情報チェック
 
-本APIのcursorは下記JSONをUTF-8化し、Base64URL（paddingなし）でエンコードした文字列とする。
-クライアントは内容を編集せず、そのまま次のリクエストに指定する。
+**共通機能使用：COM001_12。** scope=APU005_01、条件・主体＝USER＋会員ID、空の検索条件。未指定は先頭。指定時はdecodeで検証した注文確定日時・注文IDだけをSQLの境界に使う。権限・所有者は毎回別途確認。
 
-| 内部項目 | 型 | 意味・チェック |
-| --- | --- | --- |
-| v | integer | 1固定 |
-| scope | string | USER_ORDER_HISTORY固定。他機能のcursorを使用しない |
-| userId | string | 1以上のBIGINT範囲、先頭0なし。4.2のusers.idと一致 |
-| orderedAt | string | 最後に返却した注文の確定日時。UTC・ミリ秒固定のISO 8601形式 |
-| orderId | string | 最後に返却した注文ID。1以上のBIGINT範囲、先頭0なし |
-
-**内部JSONの例（リクエストボディではない）**
-
-```json
-{
-  "v": 1,
-  "scope": "USER_ORDER_HISTORY",
-  "userId": "1001",
-  "orderedAt": "2026-11-15T01:30:00.000Z",
-  "orderId": "201"
-}
-```
-
-| 条件 | 処理 |
-| --- | --- |
-| cursor未指定 | 境界条件なしで4.4へ |
-| 指定あり | Base64URLデコード → JSON解析 → 必須・型・範囲・日時・会員一致チェック |
-| 正常 | orderedAtをInstant、orderIdをLongへ変換し4.4へ |
-| デコード不可・JSON不正・重複キー・未知の項目・項目不足・型不正 | INVALID_CURSOR |
-| v/scope不一致・別会員・日時不正・数値範囲超過 | INVALID_CURSOR |
-
-日時は`yyyy-MM-dd'T'HH:mm:ss.SSS'Z'`のUTC表記に限定し、存在しない日時を拒否する。
-数値文字列は`^[1-9][0-9]{0,18}$`を確認後、Long範囲を検証する。
-nullや空欄を先頭取得扱いにしない（未指定のみ先頭取得）。
-
-このcursorは暗号化・署名を行わない位置情報であり、認可には使用しない。
-改変されても別会員の注文は取得できないよう、SQLのuser_idは必ず4.2の会員IDを使用する。
-cursorはログ出力しない。独自の有効期限は設けず、形式変更等で使用不能な場合は先頭再取得を案内する。
+次ページがある場合のみ、返した最後の行からencode。追加取得時は初回の期限を引き継ぎ返却直前に再確認する。旧形式・不一致・期限切れはCURSOR_INVALID、fieldErrors=[]。
 
 ### 4.4 注文履歴・代表商品取得
 
@@ -249,7 +214,7 @@ LIMIT 21
 | totalQuantity | orders.total_item_quantityを10進文字列へ変換 |
 | representativeProductName | order_items.product_name_snapshot。全文を返し、省略は画面側 |
 | currency | JPY固定 |
-| nextCursor | 4.3の形式。hasNext=trueの場合のみ作成 |
+| nextCursor | COM001_12.encodeの結果。hasNext=trueの場合のみ作成 |
 | asOf | 読み取りトランザクション開始時刻（UTC） |
 
 | DBのorder_status | code | label |
@@ -288,9 +253,9 @@ API GatewayのJWT拒否やネットワーク断等は本APIのJSON形式・HTTP 
 
 | 発生箇所 | error.code | error.message | fieldErrors |
 | --- | --- | --- | --- |
-| 4.1 単項目・クエリ不正 | INVALID_REQUEST | リクエスト内容を確認してください。 | 該当項目を設定 |
-| 4.3 継続情報不正 | INVALID_CURSOR | 続きの注文履歴を取得できません。先頭から再読み込みしてください。 | cursorを設定 |
-| 4.2 会員なし | USER_NOT_INITIALIZED | 会員情報の初期化が必要です。 | [] |
+| 4.1 単項目・クエリ不正 | VALIDATION_ERROR | リクエスト内容を確認してください。 | 該当項目を設定 |
+| 4.3 継続情報不正 | CURSOR_INVALID | 続きの情報を取得できません。先頭から再読み込みしてください。 | [] |
+| 4.2 会員なし | USER_NOT_INITIALIZED | 会員情報の準備が必要です。 | [] |
 | 4.2 無効会員 | ACCOUNT_DISABLED | このアカウントは現在利用できません。 | [] |
 | 4.2 初期化未完了状態 | MEMBER_NOT_READY | 会員情報の準備が完了していません。 | [] |
 | DB接続・タイムアウト等 | SERVICE_UNAVAILABLE | 注文履歴の取得に失敗しました。時間をおいて再度お試しください。 | [] |
@@ -307,7 +272,7 @@ API GatewayのJWT拒否やネットワーク断等は本APIのJSON形式・HTTP 
 | --- | --- |
 | DB例外・レスポンス生成失敗 | 読み取りトランザクションをロールバック。本APIによるDB変更がないため補償更新なし |
 | 通信タイムアウト | 同じcursorでGETを再実行可能。注文・在庫・カート・会員を変更しない |
-| INVALID_CURSOR | cursorを破棄し、先頭から再取得 |
+| CURSOR_INVALID | cursorを破棄し、先頭から再取得 |
 | 初回成功・0件 | 正常終了。復旧不要 |
 | 不整合データ | エラーまたは警告を返し、調査対象として記録。本APIでデータを補正しない |
 | 会員未初期化 | フロントでAPU001_01の会員初期化完了後、本APIを再実行 |
@@ -420,14 +385,9 @@ API GatewayのJWT拒否やネットワーク断等は本APIのJSON形式・HTTP 
   "requestId": "req-order-history-003",
   "data": null,
   "error": {
-    "code": "INVALID_CURSOR",
-    "message": "続きの注文履歴を取得できません。先頭から再読み込みしてください。",
-    "fieldErrors": [
-      {
-        "field": "cursor",
-        "message": "有効な継続情報を指定してください。"
-      }
-    ]
+    "code": "CURSOR_INVALID",
+    "message": "続きの情報を取得できません。先頭から再読み込みしてください。",
+    "fieldErrors": []
   }
 }
 ```

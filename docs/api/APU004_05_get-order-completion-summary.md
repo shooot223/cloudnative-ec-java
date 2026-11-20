@@ -118,8 +118,8 @@ BusinessでBean Validationと範囲検証を実行する。
 
 | 対象 | 条件・例 | NG時 |
 | --- | --- | --- |
-| orderId | @NotBlank、@Size(max=19)、@Pattern(regexp="^[1-9][0-9]{0,18}$") | INVALID_REQUEST |
-| orderIdの範囲 | Long変換成功、1〜9223372036854775807 | INVALID_REQUEST |
+| orderId | @NotBlank、@Size(max=19)、@Pattern(regexp="^[1-9][0-9]{0,18}$") | VALIDATION_ERROR |
+| orderIdの範囲 | Long変換成功、1〜9223372036854775807 | VALIDATION_ERROR |
 | クエリ | 項目なし | INVALID_REQUEST |
 | ボディ | 存在しない | INVALID_REQUEST |
 
@@ -262,7 +262,8 @@ TX終了後にControllerへ返す。カート数量・注文明細・配送先�
 
 | 条件 | error.code | message |
 | --- | --- | --- |
-| orderId不正、クエリ／ボディあり | INVALID_REQUEST | リクエストの内容が正しくありません。 |
+| パス値不正 | VALIDATION_ERROR | 入力内容をご確認ください。 |
+| 未定義クエリ／不要なボディ | INVALID_REQUEST | リクエストの内容が正しくありません。 |
 | 会員未登録 | USER_NOT_INITIALIZED | 会員情報の準備が必要です。 |
 | 利用不可 | ACCOUNT_DISABLED／MEMBER_NOT_READY | COM001_05の文言 |
 | 他会員の注文・不存在 | RESOURCE_NOT_FOUND | 指定された注文情報を表示できません。マイページの注文履歴からご確認ください。 |

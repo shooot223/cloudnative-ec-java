@@ -20,7 +20,7 @@ flowchart TD
 | 実装 | ProductImageUrlBuilder.build(String imageS3Key) |
 | Controller／HTTP API | 作成しない。Businessから呼ぶ内部部品 |
 | 設定 | productImageBaseUrl（環境ごとのHTTPS配信元） |
-| 主な使用先 | APU002_01・02、APA002_01・02、APU005_02、APA004_02 |
+| 主な使用先 | APU002_01・02、APA002_01・02、APU005_02、APA003_02 |
 | DB・外部通信 | なし。DB検索、S3 HEAD／GET、署名付きURL発行は行わない |
 
 画像S3キーの検証とURL生成を行う。商品の公開可否・注文所有権の確認、どの画像キーを取得するかは各Businessで判定する。注文詳細の画像は今回の仕様どおり現在の商品画像を使用する。
@@ -43,9 +43,11 @@ String imageUrl = productImageUrlBuilder.build(product.getImageS3Key());
 
 | 入力例 | 戻り値例（配信元を https://images.example.com/ とした場合） |
 | --- | --- |
-| products/101/main.png | https://images.example.com/products/101/main.png |
-| products/サンプル 1.png | https://images.example.com/products/%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%201.png |
+| product-images/101/main.png | https://images.example.com/product-images/101/main.png |
+| product-images/サンプル 1.png | https://images.example.com/product-images/%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%201.png |
 | null／空文字 | null |
+
+キーはproduct-images/から始まるS3オブジェクトキー。CloudFrontの/product-images/*でキーを変えず配信する。注文詳細では削除済み商品をJOIN対象外とし、未設定・不正キーはnull。設定不備は画像欠損として握りつぶさない。
 
 ## 3. 共通部品の処理
 
@@ -72,7 +74,8 @@ String imageUrl = productImageUrlBuilder.build(product.getImageS3Key());
 | 3 | 不正サロゲート、ISO制御文字を含む | 不正キーとしてnull |
 | 4 | 先頭「/」、末尾「/」、連続「//」、バックスラッシュを含む | 不正キーとしてnull |
 | 5 | 「/」区切りに空要素、完全一致の「.」「..」要素がある | 不正キーとしてnull |
-| 6 | 上記以外 | 3.3へ |
+| 6 | product-images/配下ではない | 不正キーとしてnull |
+| 7 | 上記以外 | 3.3へ |
 
 キーをstrip・trim・URLデコード・Unicode正規化しない。生のキーと異なるオブジェクトを指さないため。%を含む文字列も生のキーとして扱い、%自体を次の処理でエンコードする。既にURLエンコードした値を渡すのは呼出元の誤り。
 
@@ -130,7 +133,7 @@ DB・S3を変更しないためロールバック・補償削除は不要。不�
 
 ```json
 {
-  "imageUrl": "https://images.example.com/products/101/main.png"
+  "imageUrl": "https://images.example.com/product-images/101/main.png"
 }
 ```
 

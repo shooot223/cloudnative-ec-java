@@ -304,7 +304,7 @@ APA003_05は、受付から15分以上経過した本人のORDER_CANCEL操作に
           "lineNumber": 1,
           "productId": "101",
           "productName": "サンプル商品",
-          "unitIncludingTax": "1980",
+          "unitPriceIncludingTax": 1980,
           "quantity": 3,
           "subtotalIncludingTax": "5940",
           "imageUrl": null,
@@ -314,8 +314,8 @@ APA003_05は、受付から15分以上経過した本人のORDER_CANCEL操作に
       "amounts": {
         "totalQuantity": "3",
         "subtotalIncludingTax": "5940",
-        "shippingIncludingTax": "500",
-        "feeIncludingTax": "0",
+        "shippingFeeIncludingTax": "500",
+        "paymentFeeIncludingTax": "0",
         "totalIncludingTax": "6440",
         "currency": "JPY"
       },

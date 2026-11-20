@@ -76,7 +76,7 @@ FAILED・SUCCEEDEDは取得しない。履歴全体や失敗履歴を検索す�
 
 | 項目 | 型 | 必須 | 条件 |
 | --- | --- | --- | --- |
-| cursor | string | 任意 | 未指定は先頭取得。指定時1～1,024文字、4.4の形式 |
+| cursor | string | 任意 | 未指定は先頭取得。指定時1～2,048文字、4.4の形式 |
 | Body | — | なし | JSONリクエストなし |
 
 status、limit、actorId、actorType、userId、cartId、operationTypeの指定は受け付けない。
@@ -138,7 +138,7 @@ BusinessでValidator.validateを実行する。Controllerの@Validでは先行�
 
 | 対象 | 条件・実装 | NG時 |
 | --- | --- | --- |
-| cursor | @Size(min=1,max=1024)、@Pattern(regexp="^[A-Za-z0-9_-]+$")。nullは許可 | INVALID_REQUEST |
+| cursor | 未指定可。指定時はCOM001_12で検証 | CURSOR_INVALID |
 | クエリ構造 | cursorのみ。重複指定および旧仕様のstatus指定を拒否 | INVALID_REQUEST |
 
 前後空白の除去・大小文字変換は行わない。
@@ -199,47 +199,9 @@ WHERE guest_cart_token = #{guestCartToken,jdbcType=VARCHAR}
 
 ### 4.4 継続情報チェック
 
-cursorは、以下の内部JSONをUTF-8化し、Base64URL（paddingなし）にした位置情報。
-クライアントは編集せずそのまま使用する。
+**共通機能使用：COM001_12。** scope=APU006_02、条件・主体＝解決済みUSER＋会員IDまたはGUEST＋カートID、状態はサーバー固定PROCESSING。未指定は先頭。指定時はdecodeで検証した受付日時・操作IDだけをSQLの境界に使う。権限・所有者は毎回別途確認。
 
-| 内部項目 | 型 | 条件 |
-| --- | --- | --- |
-| v | integer | 1固定 |
-| scope | string | USER_PENDING_OPERATIONS固定 |
-| actorType | string | 解決したUSERまたはGUESTと一致 |
-| actorId | string | 解決した内部IDの10進文字列と一致 |
-| status | string | PROCESSING固定 |
-| createdAt | string | 最後に返した操作のcreated_at。UTC・ミリ秒固定 |
-| operationId | string | 最後に返した操作ID。1～64文字、半角英数字・ハイフン・アンダースコア |
-
-内部JSON例（リクエストボディではない）：
-
-```json
-{
-  "v": 1,
-  "scope": "USER_PENDING_OPERATIONS",
-  "actorType": "USER",
-  "actorId": "1001",
-  "status": "PROCESSING",
-  "createdAt": "2026-11-16T08:59:59.000Z",
-  "operationId": "9d4506fb-e778-44bd-b5f4-dd216695ba9c"
-}
-```
-
-| 判定 | 処理 |
-| --- | --- |
-| cursor未指定 | 境界条件なし |
-| 指定あり | デコード・JSON解析・必須項目・型・値・主体一致を確認 |
-| 正常 | createdAtをUTCのOffsetDateTimeへ変換し4.5へ |
-| デコード失敗・未知項目・重複キー・項目不足・型不正・主体不一致 | INVALID_REQUEST |
-| 日時形式不正・存在しない日時 | INVALID_REQUEST |
-
-createdAtは`yyyy-MM-dd'T'HH:mm:ss.SSS'Z'`固定。
-actorIdは正のLong範囲、先頭0なし。未指定と空文字を同一視しない。
-
-署名・暗号化は行わず、認可情報として扱わない。
-改変された場合もSQLの主体条件は4.2／4.3の解決値から設定する。
-独自の有効期限は設けない。形式が使用不能な場合は先頭から再取得する。
+次ページがある場合のみ、返した最後の行からencode。追加取得時は初回の期限を引き継ぎ返却直前に再確認する。旧形式・不一致・期限切れはCURSOR_INVALID、fieldErrors=[]。
 
 ### 4.5 未解決操作の検索
 
@@ -306,7 +268,7 @@ LIMIT 51
 | --- | --- |
 | operation_status | PROCESSINGであること |
 | is_retryable | false必須。trueは不整合としてINTERNAL_ERROR |
-| operation_id | 空欄・64文字超・許可文字外はINTERNAL_ERROR |
+| operation_id | 小文字UUID v4以外はINTERNAL_ERROR |
 | created_at・updated_at | null・不正値はINTERNAL_ERROR。現在日時で補完しない |
 | ORDER_CREATE | resultApiId=APU004_04 |
 | カート関連 | resultApiId=APU006_01 |
@@ -328,9 +290,9 @@ LIMIT 51
 
 | 条件 | error.code | message |
 | --- | --- | --- |
-| cursor単項目不正 | INVALID_REQUEST | リクエストを処理できませんでした。 |
+| cursor単項目不正 | CURSOR_INVALID | 続きの情報を取得できません。先頭から再読み込みしてください。 |
 | 未定義・重複クエリ（status指定を含む）、Cookie形式不正 | INVALID_REQUEST | リクエストを処理できませんでした。 |
-| cursor内部情報不正 | INVALID_REQUEST | リクエストを処理できませんでした。 |
+| cursor内部情報不正 | CURSOR_INVALID | 続きの情報を取得できません。先頭から再読み込みしてください。 |
 | 会員未初期化 | USER_NOT_INITIALIZED | 会員情報の準備が必要です。 |
 | 会員無効・準備未完了 | ACCOUNT_DISABLED／MEMBER_NOT_READY | COM001_05の対応文言 |
 | ゲスト主体を特定できない | RESOURCE_NOT_FOUND | 操作情報を確認できませんでした。カートの状態をご確認ください。 |

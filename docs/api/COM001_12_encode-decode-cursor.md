@@ -35,7 +35,7 @@ flowchart TD
 | ID／物理名 | COM001_12／encode-decode-cursor |
 | 実装 | CursorCodec（decode、encode、assertNotExpired） |
 | Controller・HTTP API | 作成しない。Businessから呼ぶ内部部品 |
-| 使用先 | APU002_01、APA002_01、APU005_01、APA004_01 |
+| 使用先 | APU002_01、APA002_01、APU005_01、APA003_01、APU006_02、APA004_01 |
 | 検証 | 形式・署名・用途・条件・主体・期限・継続キー型 |
 | DB・外部通信 | なし |
 | 設定 | HMAC-SHA256署名キー、Clock、有効期間1800秒 |
@@ -70,7 +70,9 @@ contextは各APIがサーバーコードで構築する。リクエストからs
 | APU002_01 | ID_DESC | 正規化済みkeyword | なし（公開商品） |
 | APA002_01 | ID_DESC | 正規化済みkeyword | なし（全管理者共通の商品範囲。認可は毎回実施） |
 | APU005_01 | CONFIRMED_AT_ID_DESC | 空の条件Map | 必須：USERと認証済みDB会員ID |
-| APA004_01 | CONFIRMED_AT_ID_DESC | 正規化済みkeyword・status（すべては空文字） | 必須：ADMINと認可済みDB管理者ID |
+| APA003_01 | CONFIRMED_AT_ID_DESC | 正規化済みkeyword・status（すべては空文字） | 必須：ADMINと認可済みDB管理者ID |
+| APU006_02 | CREATED_OPERATION_DESC | status=PROCESSING（サーバー固定） | USER＋会員ID、またはGUEST＋解決済みカートID |
+| APA004_01 | CREATED_SOURCE_OPERATION_DESC | status=PROCESSING（サーバー固定） | ADMIN＋管理者ID |
 
 キー型・条件項目名・主体要否はこの登録表で決定する。未登録scopeは内部エラー。価格順などの追加は本表・キー型・各APIのORDER BYを一緒に設計変更し、任意キー・任意SQLを受け付けない。
 
@@ -78,9 +80,9 @@ contextは各APIがサーバーコードで構築する。リクエストからs
 | --- | --- |
 | scope | 登録済み固定値 |
 | keyword（商品一覧） | String、null不可。空文字は条件なし。入力検証済み |
-| conditions（注文一覧） | Map<String,String>。null値なし。上表どおりのキー集合 |
+| conditions（注文・未解決操作一覧） | Map<String,String>。null値なし。上表どおりのキー集合 |
 | actorType・actorId（必要時） | 固定区分と正のLong。認証・DB検索の結果 |
-| lastReturnedKey | ID_DESCは正のLong ID。複合型はInstantの注文確定日時＋正のLong ID |
+| lastReturnedKey | ID_DESCは正のLong ID。注文型は確定日時＋注文ID。未解決操作型は3.3のキー集合 |
 
 ### 2.3 カーソルの外部形式
 
@@ -149,10 +151,10 @@ UTF-8の不正バイト列を拒否し、JSONオブジェクトとして厳密�
 | lastId | 正の10進文字列、先頭0なし、Long範囲内 |
 | queryHash | 64桁小文字hex |
 | exp | JSON整数、正のLongのUTC Unix秒 |
-| lastConfirmedAt | 複合型でのみ必須。UTC「yyyy-MM-dd'T'HH:mm:ss.SSS'Z'」の実在日時。厳密解析・再整形で同一になること |
+| lastConfirmedAt | 注文型でのみ必須。UTC「yyyy-MM-dd'T'HH:mm:ss.SSS'Z'」の実在日時。厳密解析・再整形で同一になること |
 | actorHash | 主体バインド型でのみ必須。64桁小文字hex |
 
-商品型はv・scope・lastId・queryHash・expのみ。複合型はこれにlastConfirmedAt・actorHashを加えた集合のみを許可する。欠損・型不一致・不正日時はCURSOR_INVALID。
+全型共通はv・scope・queryHash・exp。商品型はlastId、注文型はlastId・lastConfirmedAt・actorHashを追加。未解決操作型はlastCreatedAt・lastOperationId・actorHash、管理者未解決操作型に限りlastSourceRankも追加。これ以外を拒否。時刻はSQL境界と同じ精度のUTC値、操作IDは小文字UUID v4、rankは整数0（画像）または1（業務）。各キーは降順。
 
 取得した値をLong・Instantへ変換する。境界の商品の存在確認や注文検索はしない。
 
@@ -163,7 +165,7 @@ queryHashの算出方式：
 | 対象 | 方式 |
 | --- | --- |
 | 商品一覧 | 正規化済みkeywordのUTF-8バイト列をSHA-256、小文字hexにする。既存仕様を維持 |
-| 注文一覧 | conditionsをキー昇順のJSONオブジェクトへ正規化し、専用コンテキストとともにHMAC-SHA256、小文字hexにする |
+| 注文・未解決操作一覧 | conditionsをキー昇順のJSONオブジェクトへ正規化し、専用コンテキストとともにHMAC-SHA256、小文字hexにする |
 
 注文条件の正規化は、キー昇順・値は文字列のみ・空白なしJSONとする。文字列は二重引用符とバックスラッシュをエスケープし、U+0000〜001Fは小文字hexの「\\u00xx」形式、他のUnicodeはそのままUTF-8出力する。呼出元で検証した文字列をtrim・正規化し直さない。
 
@@ -200,14 +202,14 @@ context・キー型・IDの正値・日時精度・previousとのcontext一致�
 
 ### 4.2 ペイロード作成・署名
 
-1. v=1、scope、lastId、必要時lastConfirmedAtを設定する。
+1. v=1、scopeと3.3のプロファイル別境界キーを設定する。
 2. 3.4と同じ方法でqueryHash・必要時actorHashを算出する。
 3. 4.1のexpを設定する。
 4. UTF-8のコンパクトJSONへ変換し、Base64url（パディングなし）にする。
 5. そのBase64url文字列のASCIIバイト列をHMAC-SHA256で署名する。
 6. 署名をBase64url化し、「ペイロード.署名」を作る。
 
-生成時のフィールド順はv、scope、lastId、lastConfirmedAt（該当時）、queryHash、actorHash（該当時）、expに固定する。検証では受信したペイロード文字列に対して署名検証し、JSONを再シリアライズして署名を検証しない。
+生成時のフィールド順はv、scope、プロファイル別境界キー（商品：lastId／注文：lastId・lastConfirmedAt／未解決：lastCreatedAt・管理者のみlastSourceRank・lastOperationId）、queryHash、actorHash（該当時）、expに固定する。検証では受信したペイロード文字列に対して署名検証し、JSONを再シリアライズして署名を検証しない。
 
 ### 4.3 長さ確認・文字列返却
 

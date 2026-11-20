@@ -209,7 +209,7 @@ APU001_01から呼び出してDB取得に失敗した場合の例：
   "data": null,
   "error": {
     "code": "SERVICE_UNAVAILABLE",
-    "message": "会員情報を取得できませんでした。再試行してください。",
+    "message": "会員情報を取得・準備できませんでした。再試行してください。",
     "fieldErrors": []
   }
 }

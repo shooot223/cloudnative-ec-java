@@ -133,27 +133,9 @@ adminsのSQL・状態判定はCOM002_01へ集約し、本Businessに重複実装
 
 ### 4.3 カーソル検証
 
-未指定ならlastId=nullとして4.4へ進む。指定ありなら次の順で検証する。
+**共通機能使用：COM001_12。** scope=APA002_01、条件・主体＝正規化済みkeyword。未指定は先頭。指定時はdecodeで検証した商品IDだけをSQLの境界に使う。権限・所有者は毎回別途確認。
 
-| 順序 | 処理 | NG時 |
-| --- | --- | --- |
-| 1 | 2要素へ分割しBase64urlデコード | CURSOR_INVALID |
-| 2 | 元のペイロード部分のASCIIバイト列へHMAC-SHA256を計算 | 設定・暗号処理異常はINTERNAL_ERROR |
-| 3 | 署名32バイトと計算値を定数時間比較 | CURSOR_INVALID |
-| 4 | 検証済みペイロードをUTF-8 JSONとして厳密解析。重複・未知項目を拒否 | CURSOR_INVALID |
-| 5 | 下表を照合しlastIdをLongへ変換 | CURSOR_INVALID |
-
-| ペイロード項目 | 型・チェック |
-| --- | --- |
-| v | 整数1 |
-| scope | 文字列APA002_01。公開一覧のカーソルは使用不可 |
-| lastId | 正の10進文字列、先頭0なし、Long範囲内 |
-| queryHash | 正規化済みkeywordのUTF-8バイト列に対するSHA-256、小文字hex64桁。一致必須 |
-| exp | UTC Unix秒の整数。現在時刻より未来、現在から1800秒以内 |
-
-署名キーは32バイト以上のランダム値をサーバー設定から取得し、全ECSタスクで共有する。クライアントには渡さず、起動ごとに生成しない。カーソルは暗号化ではないため、認証情報・管理者識別情報・検索語原文を含めない。
-
-検索語変更時はcursorを破棄する。lastIdの商品が論理削除済みでも、その行の存在確認は不要。本方式はAPU002_01に揃えるが、scopeは管理者用に分離する。
+次ページがある場合のみ、返した最後の行からencode。追加取得時は初回の期限を引き継ぎ返却直前に再確認する。旧形式・不一致・期限切れはCURSOR_INVALID、fieldErrors=[]。
 
 ### 4.4 商品を最大51件取得
 
@@ -172,6 +154,7 @@ adminsのSQL・状態判定はCOM002_01へ集約し、本Businessに重複実装
 | id、version | Long | 識別・カーソル／編集削除時の競合確認 |
 | name、summary | String | 一覧表示／検索（summaryはnull可） |
 | price_including_tax | Integer | 税込価格 |
+| price_excluding_tax | Integer | 登録済み税抜価格（主表示） |
 | stock_quantity | Integer | 管理者向け実在庫 |
 | publish_status、sales_status | String | 公開状態・販売設定 |
 | image_s3_key | String（null可） | 配信URL生成 |
@@ -181,7 +164,7 @@ keywordありの場合、「!」→「!!」、「%」→「!%」、「_」→「
 
 ```xml
 <select id="selectAdminProducts" resultMap="AdminProductListRowMap">
-  SELECT id, name, summary, price_including_tax,
+  SELECT id, name, summary, price_excluding_tax, price_including_tax,
          stock_quantity, publish_status, sales_status,
          image_s3_key, version, updated_at
   FROM products
@@ -277,7 +260,7 @@ hasNext=trueの場合、4.3の形式で以下を設定する。
 | ボディあり、未知・重複クエリ | INVALID_REQUEST | リクエストの内容が正しくありません。 | [] |
 | keyword上限超過 | VALIDATION_ERROR | 入力内容をご確認ください。 | keyword：検索キーワードは50文字以内で入力してください。 |
 | keyword文字不正 | VALIDATION_ERROR | 入力内容をご確認ください。 | keyword：検索キーワードを確認してください。 |
-| 管理者未登録・無効・権限なし | FORBIDDEN | このアカウントには管理画面へのアクセス権限がありません。 | [] |
+| 管理者未登録・無効・権限なし | FORBIDDEN | この操作を実行する権限がありません。 | [] |
 | カーソル不正・期限切れ・条件不一致 | CURSOR_INVALID | 続きの情報を取得できません。先頭から再読み込みしてください。 | [] |
 | DB接続・タイムアウト等の一時障害 | SERVICE_UNAVAILABLE | 処理を完了できませんでした。時間をおいて再試行してください。 | [] |
 | SQL定義不備、取得値不正、設定不備、その他の想定外例外 | INTERNAL_ERROR | 処理を完了できませんでした。 | [] |
@@ -343,6 +326,7 @@ HTTP 200、Content-Type: application/json、Cache-Control: no-store。
 | items[].name | string | 不可 | products.name全文 |
 | items[].imageUrl | string | 可 | image_s3_keyから生成したHTTPS URL |
 | items[].priceIncludingTax | number | 不可 | price_including_tax、円単位整数 |
+| items[].priceExcludingTax | number | 不可 | 保存済み税抜単価 |
 | items[].stockQuantity | number | 不可 | stock_quantity、実在庫0〜99999 |
 | items[].publishStatus | string | 不可 | publish_status、PUBLIC／PRIVATE |
 | items[].salesStatus | string | 不可 | sales_status、ON_SALE／SUSPENDED |
@@ -363,6 +347,7 @@ HTTP 200、Content-Type: application/json、Cache-Control: no-store。
         "productId": "101",
         "name": "サンプル商品",
         "imageUrl": null,
+        "priceExcludingTax": 1800,
         "priceIncludingTax": 1980,
         "stockQuantity": 20,
         "publishStatus": "PRIVATE",

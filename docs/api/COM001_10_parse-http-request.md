@@ -83,6 +83,10 @@ public ResponseEntity<?> execute(
 
 上記は構造例。`@ApiInput`を自作する場合は、引数解決部品の登録と対象型判定が必要。同じ引数に`@RequestBody`・`@Valid`・`@Validated`を併用しない。Spring標準の`@RequestBody`方式を採用するAPIでは、同等の設定をconverterに適用し、二つの経路でボディを読み取らない。
 
+ゲストCookieを発行・使用・解除する更新系ルート（統合を含む）は、本文処理の前にOriginを検証する。許可リストのscheme・host・実効portすべてが完全一致した場合だけ続行。Originが欠落した場合のみRefererのoriginを同じ方法で照合する。null・複数・不正・両方欠落・不一致はCSRF_VALIDATION_FAILED、Businessは実行しない。
+
+JSONツリー方式はAPU001_01のみ。他のJSONはAPI専用DTOを使う。部分更新で省略と明示nullの意味が異なる項目は存在フラグを保持する。
+
 ## 3. 処理詳細
 
 ### 3.1 URL・メソッドの受付

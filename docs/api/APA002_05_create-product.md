@@ -59,7 +59,6 @@ flowchart TD
 | summary | string／null | — | 前後空白除去後200コードポイント以内。省略・null・空文字はnullへ統一 |
 | description | string／null | — | 前後空白除去後2,000コードポイント以内。内部改行を保持。省略・null・空文字はnullへ統一 |
 | priceExcludingTax | number | ○ | 整数、1〜9,999,999 |
-| taxRate | number | ○ | 整数、0〜32767。10は10%。税込計算結果のINTEGER範囲も確認 |
 | stockQuantity | number | ○ | 整数、0〜99,999 |
 | publishStatus | string | ○ | PUBLIC／PRIVATE。大小文字変換・空白除去しない |
 | salesStatus | string | ○ | ON_SALE／SUSPENDED。売り切れは指定しない |
@@ -78,7 +77,6 @@ flowchart TD
   "summary": "商品の概要です。",
   "description": "商品の詳細説明です。\n改行を保持します。",
   "priceExcludingTax": 1800,
-  "taxRate": 10,
   "stockQuantity": 20,
   "publishStatus": "PRIVATE",
   "salesStatus": "ON_SALE",
@@ -143,7 +141,6 @@ request_hashは、次の固定順フィールドを持つ正規化JSONのUTF-8�
   "summary": "商品の概要です。",
   "description": "商品の詳細説明です。\n改行を保持します。",
   "priceExcludingTax": 1800,
-  "taxRate": 10,
   "stockQuantity": 20,
   "publishStatus": "PRIVATE",
   "salesStatus": "ON_SALE",
@@ -210,16 +207,7 @@ WHERE operation_id = #{operationId,jdbcType=VARCHAR};
 
 ### 4.5 税込価格計算
 
-**共通機能使用：COM001_13 税込価格計算。**
-
-```java
-int priceIncludingTax = taxInclusivePriceCalculator.calculate(
-    command.priceExcludingTax(), command.taxRate());
-```
-
-入力は検証済み税抜単価・整数税率。返却intを商品登録へ使用する。税計算式や丸め処理を本Businessへ重複実装しない。
-
-計算失敗の場合は商品未登録のため5.2の失敗確定処理へ。既存SUCCEEDEDの再送ではここを実行せず、保存済み結果を返す。
+**共通機能使用：COM001_13。** 登録時は設定済み共通税率をeffectiveTaxRateとし、税抜単価とともに渡す。 設定欠落はINTERNAL_ERROR。税率・税込単価を要求ハッシュに含めず、適用値は商品と同じTXで保存する。
 
 ### 4.6 操作行ロック・実行可否確認（TX-B開始）
 
@@ -275,7 +263,7 @@ VERIFIEDは画像実体検証・S3保存が確定した状態として扱い、S
 | --- | --- |
 | id | IDENTITY採番 |
 | name／summary／description | 正規化済み入力 |
-| price_excluding_tax／tax_rate | 検証済み入力 |
+| price_excluding_tax／tax_rate | 検証済み税抜単価／サーバー決定税率 |
 | price_including_tax | COM001_13の計算結果 |
 | stock_quantity | stockQuantity |
 | publish_status／sales_status | 入力の公開状態・販売設定 |

@@ -28,7 +28,7 @@ flowchart TD
 | Mapper | AdminMapper.selectByCognitoSub |
 | Controller・HTTP URL | なし。ECS内部の共通機能 |
 | 呼出元 | 管理者の各Business |
-| 使用先 | APA001_01、APA002_01〜08、APA004_01〜05、APA006_01（15 API） |
+| 使用先 | APA001_01、APA002_01〜08、APA003_01〜05、APA004_01（15 API） |
 | 対象外 | AmplifyのAPA001_02・APA001_03、会員・ゲスト・非同期処理 |
 | DB操作 | adminsのSELECTのみ |
 
@@ -134,7 +134,7 @@ displayNameは表示を必要とするAPA001_01で検証する。本共通部品
 
 | 条件 | code | 共通の返却メッセージ | fieldErrors |
 | --- | --- | --- | --- |
-| 未登録・無効・権限なし | FORBIDDEN | このアカウントには管理画面へのアクセス権限がありません。 | [] |
+| 未登録・無効・権限なし | FORBIDDEN | この操作を実行する権限がありません。 | [] |
 | 接続・タイムアウト等のDB一時障害 | SERVICE_UNAVAILABLE | 処理を完了できませんでした。時間をおいて再試行してください。 | [] |
 | 内部引数不備、複数件、ID不正、SQL・マッピング不備、想定外例外 | INTERNAL_ERROR | 処理を完了できませんでした。 | [] |
 
@@ -183,7 +183,7 @@ DB定義ではdisplay_nameはNOT NULLだが、内部DTOでは欠損を許容し�
   "data": null,
   "error": {
     "code": "FORBIDDEN",
-    "message": "このアカウントには管理画面へのアクセス権限がありません。",
+    "message": "この操作を実行する権限がありません。",
     "fieldErrors": []
   }
 }

@@ -162,6 +162,8 @@ DB値不正はINTERNAL_ERROR。0・空文字・適当な状態で補完しない
 
 VERIFIEDは現在のS3可用性を保証する項目ではない。成功済み操作の照会ごとに画像の存在・配信可否を再検証しない。
 
+15分の経過だけでは失敗を確定しない。対象行をロックして再読込し、旧処理の書込みが残らないことと、対象の業務変更または画像実体の有無を照合する。整合を証明できない場合は更新せず現状態を返し、運用調査へ引き継ぐ。
+
 ### 4.5 S3実体・フィンガープリント照合
 
 | HeadObjectリクエスト | 設定値 |
@@ -237,10 +239,11 @@ SELECT clock_timestamp() AS checked_at;
 | --- | --- |
 | checked_atがcreated_atより前 | 時刻不整合。INTERNAL_ERROR |
 | checked_at＜deadline | 更新せずTX終了、PROCESSINGを返す |
-| checked_at≧deadline | 下記更新を実行しコミット後FAILEDを返す |
+| checked_at≧deadline、元の書込み終了確認済み・再度のHEADで対象なし | 下記更新を実行しコミット後FAILEDを返す |
 
 ```sql
 UPDATE product_image_uploads
+-- 書込みの終了を証明できない場合はこのSQLを実行せずPROCESSINGを返す。
 SET status = 'FAILED', updated_at = CURRENT_TIMESTAMP
 WHERE upload_operation_id = #{uploadOperationId,jdbcType=VARCHAR}
   AND admin_id = #{adminId,jdbcType=BIGINT}

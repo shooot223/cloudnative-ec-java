@@ -76,6 +76,8 @@ HTTPリクエストボディではなく、例外発生時の内部情報を受�
 
 例外クラス名は実装で統一する。例外のgetMessage()を利用者向け文言として無条件に採用しない。
 
+入力構造（未知のJSON項目・型違い・未知クエリ）と項目値を区別する。前者はINVALID_REQUEST。後者（DTO単項目・項目間・管理APIのID値）はVALIDATION_ERROR。公開商品詳細のID不正は不存在と同じRESOURCE_NOT_FOUND。署名付きカーソル不正はCURSOR_INVALID、fieldErrors=[]。共通文言の正本は機能一覧09。
+
 ## 3. 処理詳細 — ApiExceptionHandler
 
 ### 3.1 応答可能か確認

@@ -119,11 +119,11 @@ BusinessでCommandを検証する。値の前後空白除去・大文字小文�
 
 | 対象 | チェック | NG時 |
 | --- | --- | --- |
-| operationId | 必須、1〜64文字。半角英数字・ハイフン・アンダースコアのみ | INVALID_REQUEST |
+| operationId | 必須、小文字UUID v4、36文字固定 | VALIDATION_ERROR |
 | クエリ | 項目なし | INVALID_REQUEST |
 | ボディ | 存在しない | INVALID_REQUEST |
 
-DTOアノテーション例：operationIdに@NotBlank、@Size(max=64)、@Pattern(regexp="^[A-Za-z0-9_-]+$")。Bean ValidationはBusinessから実行する。
+DTO：@NotBlank、@Size(min=36,max=36)、小文字UUID v4の@Pattern。Businessで検証する。
 操作IDの許可形式は注文確定時の共通Idempotency-Key検証と一致させる。本書の形式外を注文側で受け付けないことを実装時に確認する。
 
 項目間チェックはなし。会員と操作・注文の対応は4.3・4.4のDB条件で検証する。パス変数自体が欠落しルートに一致しない要求は、共通ルーティングで処理する。
@@ -316,7 +316,8 @@ GROUP BY c.id, c.version, c.status, c.expires_at;
 
 | 条件 | error.code | message |
 | --- | --- | --- |
-| パス形式不正・クエリ／ボディあり | INVALID_REQUEST | リクエストの内容が正しくありません。 |
+| パス値不正 | VALIDATION_ERROR | 入力内容をご確認ください。 |
+| 未定義クエリ／不要なボディ | INVALID_REQUEST | リクエストの内容が正しくありません。 |
 | 会員なし | USER_NOT_INITIALIZED | 会員情報の準備が必要です。 |
 | 利用不可 | ACCOUNT_DISABLED／MEMBER_NOT_READY | COM001_05の文言 |
 | 本人のORDER_CREATE操作が取得できない | RESOURCE_NOT_FOUND | 操作結果を確認できませんでした。再注文せず、指定した操作情報をご確認ください。 |

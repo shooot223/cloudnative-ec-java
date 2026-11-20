@@ -1,4 +1,4 @@
-# APA004_01_管理用注文履歴一覧・検索・状態絞り込み
+# APA003_01_管理用注文履歴一覧・検索・状態絞り込み
 
 ## 0. 処理フロー
 
@@ -23,7 +23,7 @@ flowchart TD
 
 | 項目 | 設計 |
 | --- | --- |
-| 機能ID／旧ID／物理名 | APA004_01／API-A12／search-admin-orders |
+| 機能ID／旧ID／物理名 | APA003_01／API-A12／search-admin-orders |
 | エンドポイント | POST /api/v1/admin/orders/search |
 | 呼出元 | SCA-04 注文履歴一覧。初回、検索、条件クリア、追加取得、先頭再取得で使用 |
 | 対象 | 全会員の成立済み注文。キャンセル済みを含む。成立前の操作は対象外 |
@@ -93,7 +93,7 @@ flowchart TD
 
 | CursorContextの項目 | 渡す値 |
 | --- | --- |
-| scope／キー型 | APA004_01／CONFIRMED_AT_ID_DESC |
+| scope／キー型 | APA003_01／CONFIRMED_AT_ID_DESC |
 | 条件 | 4.1で確定したkeyword・status |
 | 主体 | ADMIN、4.2で取得した管理者IDの10進文字列 |
 
@@ -105,14 +105,14 @@ flowchart TD
 | --- | --- |
 | orders o | 注文番号・確定日時・注文者の氏名とメール・確定総額・確定数量・現在の注文／決済／返金状態を取得。成立済み注文だけが入るテーブルなので、キャンセル除外条件は付けない |
 | order_items i | 同一注文IDかつline_number＝1をLEFT JOIN。代表商品の注文時名称を取得。明細が欠損しても注文の行は落とさない |
-| キーワード | 注文番号、注文時の注文者氏名・メール、受取人氏名のいずれかに部分一致。受取人氏名は検索のみで返却しない |
+| キーワード | 注文番号、注文時の注文者氏名・メール、受取人氏名のいずれかに部分一致。受取人氏名は注文時の値を検索・返却する |
 | 注文状況 | 指定時のみ完全一致。キーワードのOR条件全体とANDで結合 |
 | ページ境界 | 前回末尾の（確定日時、注文ID）より小さい行のみ。初回は境界条件なし |
 
 **Mapper SQL**（コメントで囲んだ条件をMyBatisのifで追加。値はすべてバインドする）
 
 ```sql
-SELECT o.id, o.order_number, o.ordered_at, o.purchaser_name, o.purchaser_email,
+SELECT o.id, o.order_number, o.ordered_at, o.purchaser_name, o.purchaser_email, o.recipient_name,
        o.order_status, o.mock_payment_status, o.mock_refund_status,
        o.total_item_quantity, o.total_amount_including_tax, i.product_name_snapshot
 FROM orders o
@@ -187,7 +187,7 @@ ECSで捕捉した例外は原則HTTP 200、data=null、fieldErrors=[]。API Gat
 | data／error | objectまたはnull | 成功時data、失敗時error。反対側はnull |
 | data.orders | array | 0〜50件 |
 | orders[].orderId／orderedAt | string | 注文ID／UTC確定日時 |
-| orders[].orderNumber／purchaserName／purchaserEmail | stringまたはnull | 注文番号／注文時の注文者氏名・メール |
+| orders[].orderNumber／purchaserName／purchaserEmail／recipientName | stringまたはnull | 注文番号／注文時の注文者氏名・メール・受取人氏名 |
 | orders[].representativeProductName | stringまたはnull | 明細番号1の注文時商品名 |
 | orders[].totalQuantity／totalIncludingTax | stringまたはnull | 合計点数／税込合計請求金額（整数円） |
 | orders[].currency | string | JPY |
@@ -202,7 +202,7 @@ ECSで捕捉した例外は原則HTTP 200、data=null、fieldErrors=[]。API Gat
   "data": {
     "orders": [{
       "orderId": "201", "orderNumber": "ORD-201", "orderedAt": "2026-11-15T01:30:00.000Z",
-      "purchaserName": "山田 太郎", "purchaserEmail": "buyer@example.com",
+      "recipientName": "山田 花子", "purchaserName": "山田 太郎", "purchaserEmail": "buyer@example.com",
       "representativeProductName": "サンプル商品", "totalQuantity": "3",
       "totalIncludingTax": "6440", "currency": "JPY",
       "orderStatus": {"code":"PREPARING","label":"手配中"},

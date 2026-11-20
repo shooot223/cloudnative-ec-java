@@ -99,7 +99,7 @@ quantityの99999はDB在庫の表現上限に合わせた入力上限であり�
 | actorType=USER、検証済みsub | actorType=GUEST、共通解析済みCookie |
 | 共通認証の結果を使用 | Cookieの存在だけで会員認証済みとは扱わない |
 
-**共通機能使用：COM001_10 HTTP共通受付・JSON構文解析。** JSONツリーとクエリをCommandへ渡す。共通ヘッダー・認証・Origin確認の内部処理は本Controllerへ実装しない。
+**共通機能使用：COM001_10 HTTP共通受付・JSON構文解析。** 厳密変換済みの専用DTOとクエリをCommandへ渡す。共通ヘッダー・認証・Origin確認の内部処理は本Controllerへ実装しない。
 
 AddCartItemBusiness.execute(command)を呼び出す。Controllerは値の検証・Long変換・SQLを実行しない。
 
@@ -110,17 +110,19 @@ AddCartItemBusiness.execute(command)を呼び出す。Controllerは値の検証�
 - ゲストのCookie設定は、Cookie準備または追加処理のコミット成功確認後だけ実施する。
 - JSONは共通形式、Cache-Control: no-store。トークンをJSONに含めない。
 
+共通機能使用：COM001_10。JSON構造・未知項目・型不一致は受付でINVALID_REQUEST。BusinessがDTOの必須・値域・相関を検証し、違反はVALIDATION_ERROR。
+
 ## 4. Business：AddCartItemBusiness
 
 ### 4.1 入力チェック
 
 | 順序 | 対象 | 検証 | NG |
 | --- | --- | --- | --- |
-| 1 | JSON・クエリ | ボディはobject、許可キーはoperationId／productId／quantityのみ。クエリなし | INVALID_REQUEST |
+| 1 | JSON・クエリ | COM001_10で構造・未知キー検証済み。クエリなし | INVALID_REQUEST |
 | 2 | operationId | null不可、UUID v4小文字の36文字 | VALIDATION_ERROR |
 | 3 | productId | null不可、string、正規表現[1-9][0-9]{0,18} | VALIDATION_ERROR |
 | 4 | productId | Long.parseLongに成功し1以上 | VALIDATION_ERROR |
-| 5 | quantity | JSON整数であること。文字列・小数・指数表記・booleanを拒否 | VALIDATION_ERROR |
+| 5 | quantity | 整数型への厳密変換は共通受付済み。未指定・nullをBusinessで拒否 | VALIDATION_ERROR |
 | 6 | quantity | 1〜99999 | VALIDATION_ERROR |
 
 - 単項目条件はDTOの@NotNull、@Pattern、@Min、@Max等に定義し、BusinessでValidator.validateを実行する。COM001_03は使用しない。
@@ -167,7 +169,7 @@ Cookieを取得できない初回要求では、商品をまだ追加しない�
 
 | 順序 | 処理 |
 | --- | --- |
-| 1 | operationIdの既存記録があればIDEMPOTENCY_KEY_REUSED。所有者を確認できない結果は返さない |
+| 1 | operationIdの既存記録があり主体を確認できなければRESOURCE_NOT_FOUND。所有者を確認できない結果は返さない |
 | 2 | SecureRandomで32バイトを生成し、小文字64桁hexをゲストトークンにする |
 | 3 | 短い準備TXで空のcartsをINSERT。user_id=null、status=ACTIVE、version=1、expires_at=DB現在時刻＋7日 |
 | 4 | コミット成功後にCookieを設定し、action=GUEST_CART_READYを返す |
@@ -216,7 +218,8 @@ RETURNING operation_id;
 | --- | --- |
 | INSERT 1件 | 本要求が実行担当。4.6へ |
 | INSERT 0件 | 別SQLでoperation_idの行を取得。主体・種別・ハッシュを照合 |
-| 主体／種別／ハッシュ不一致 | IDEMPOTENCY_KEY_REUSED。既存内容は開示しない |
+| 他主体の操作ID | RESOURCE_NOT_FOUND。結果・存在を開示しない |
+| 同一主体で対象・種別・正規化内容が不一致 | IDEMPOTENCY_KEY_REUSED。更新しない |
 | 一致・SUCCEEDED／FAILED | 4.5へ |
 | 一致・PROCESSING | operationStatus=PROCESSINGを返し結果照会へ。再実行しない |
 | 一意制約待機のタイムアウト | TXを戻しSERVICE_UNAVAILABLE。相手の結果を確認する |
@@ -331,6 +334,8 @@ FAILED記録だけをコミットし、明細・version・ゲスト期限は変�
 
 利用者が数量等を修正して新しい追加操作を行う場合は新operationId。同じoperationIdの再送は元のFAILEDを返す。
 
+初回ゲスト追加でGUEST_CART_READYを受けたら、Cookieを送れる同一要求・同一operationIdで1回だけ続行する。再度READYなら自動再送を止め、Cookie設定の確認を案内する。HttpOnly CookieをJSから読み取らない。
+
 ## 5. 例外・トランザクション・復旧
 
 ### 5.1 応答コード
@@ -348,7 +353,8 @@ FAILED記録だけをコミットし、明細・version・ゲスト期限は変�
 | 在庫不足 | BUSINESS_RULE_VIOLATION | 在庫数を超えるため、追加できません。 |
 | 統合未完了 | BUSINESS_RULE_VIOLATION | カート情報の引き継ぎが完了していません。再試行してください。 |
 | カート期限切れ・利用状態変化 | BUSINESS_RULE_VIOLATION | カート情報が変更されています。最新の内容をご確認ください。 |
-| 同一キーで要求・主体不一致 | IDEMPOTENCY_KEY_REUSED | 同じ操作識別子で異なるリクエストが送信されました。 |
+| 他主体の操作ID | RESOURCE_NOT_FOUND | 指定された情報を表示できません。 |
+| 同一主体で対象・種別・正規化内容が不一致 | IDEMPOTENCY_KEY_REUSED | 同じ操作識別子で異なるリクエストが送信されました。 |
 | Origin等の共通チェックNG | CSRF_VALIDATION_FAILED | 操作を確認できませんでした。画面を再読み込みしてください。 |
 | DB接続障害・ロック待機タイムアウト | SERVICE_UNAVAILABLE | 処理を完了できませんでした。時間をおいて再試行してください。 |
 | SQL不備・DB不正・計算例外 | INTERNAL_ERROR | 処理を完了できませんでした。 |

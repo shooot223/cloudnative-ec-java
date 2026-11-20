@@ -101,13 +101,15 @@ WHERE operation_id = #{operationId,jdbcType=VARCHAR}
 | PROCESSING | stale＝true | 4.5へ。経過時間だけで失敗としない |
 | 未定義・必須項目の不整合 | — | INTERNAL_ERROR。結果を補完せず、DBも書き換えない |
 
+15分の経過だけでは失敗を確定しない。対象行をロックして再読込し、旧処理の書込みが残らないことと、対象の業務変更または画像実体の有無を照合する。整合を証明できない場合は更新せず現状態を返し、運用調査へ引き継ぐ。
+
 ### 4.5 長時間処理中の操作だけを確定する
 
 **前提：** 元の3つのAPIは操作行をロックしてPROCESSINGを確認してから商品を書き換え、商品変更とSUCCEEDEDを同じトランザクションでコミットする。このため、下記の再確認でPROCESSINGなら、元操作の商品変更は確定していない。
 
 1. 短いREAD COMMITTEDトランザクションを開始。4.3と**同じSELECT・同じ所有者条件**に `FOR UPDATE NOWAIT` を付けて実行する。
 2. このロック試行で行ロックを取れない場合（SQLSTATE 55P03）はトランザクションをロールバックし、直前に観測したPROCESSINGを返す。他のDB例外は5.1へ。
-3. 取得した行で4.4の判定をやり直す。SUCCEEDED／FAILEDならその結果を返す。0件はRESOURCE_NOT_FOUND。PROCESSINGかつ15分以上の場合だけ下記を実行する。他の分岐は書込みなしでトランザクションを終了する。
+3. 取得した行で4.4の判定をやり直す。SUCCEEDED／FAILEDならその結果を返す。0件はRESOURCE_NOT_FOUND。PROCESSINGかつ15分以上かつ元処理の終了・対象未更新が確認できた場合だけ下記を実行する。他の分岐は書込みなしでトランザクションを終了する。
 
 ```sql
 UPDATE operation_histories

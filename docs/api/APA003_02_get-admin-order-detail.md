@@ -156,8 +156,8 @@ ECSで応答できる例外は原則HTTP 200、data=null、error.fieldErrors=[]�
 | cancellation | キャンセル済みのみ {cancelledAt, reason}。その他はnull |
 | purchaser | {name, email}。注文時の注文者 |
 | recipient | {name, postalCode, prefecture, cityStreet, building, phoneNumber}。各値は文字列。任意・欠損はnull |
-| items[] | itemId、productIdは10進文字列。lineNumber、quantityは整数。productName、unitIncludingTax、subtotalIncludingTaxは注文時の値。imageUrlは現在のURLまたはnull、canEditProductはboolean |
-| amounts | totalQuantityは購入点数の10進文字列。subtotalIncludingTax、shippingIncludingTax、feeIncludingTax、totalIncludingTaxは注文時の整数円の10進文字列。currencyはJPY |
+| items[] | itemId、productIdは10進文字列。lineNumber、quantityは整数。productName、unitPriceIncludingTax（JSON整数）、subtotalIncludingTax（10進文字列）は注文時の値。imageUrlは現在のURLまたはnull、canEditProductはboolean |
+| amounts | totalQuantityは購入点数の10進文字列。subtotalIncludingTax、shippingFeeIncludingTax、paymentFeeIncludingTax、totalIncludingTaxは注文時の整数円の10進文字列。currencyはJPY |
 | payment | methodLabel、status、refundStatus、refundAmount。金額は整数円の10進文字列、該当なしはnull。金額項目はAPI内で合算し直さない |
 
 外枠はrequestId（string）、data、error。成功時はerror=null、失敗時はdata=null。表示項目の不正・欠損は4.4のとおりnullまたはUNKNOWNで表す。以下は、画像未設定の現行商品を含む注文の例。
@@ -178,10 +178,10 @@ ECSで応答できる例外は原則HTTP 200、data=null、error.fieldErrors=[]�
     "recipient": {"name":"山田 太郎","postalCode":"1234567","prefecture":"東京都","cityStreet":"サンプル区一丁目1番","building":null,"phoneNumber":"0312345678"},
     "items": [{
       "itemId":"301","lineNumber":1,"productId":"101","productName":"サンプル商品",
-      "unitIncludingTax":"1980","quantity":3,"subtotalIncludingTax":"5940",
+      "unitPriceIncludingTax":1980,"quantity":3,"subtotalIncludingTax":"5940",
       "imageUrl":null,"canEditProduct":true
     }],
-    "amounts": {"totalQuantity":"3","subtotalIncludingTax":"5940","shippingIncludingTax":"500","feeIncludingTax":"0","totalIncludingTax":"6440","currency":"JPY"},
+    "amounts": {"totalQuantity":"3","subtotalIncludingTax":"5940","shippingFeeIncludingTax":"500","paymentFeeIncludingTax":"0","totalIncludingTax":"6440","currency":"JPY"},
     "payment": {"methodLabel":"クレジットカード（モック）","status":{"code":"PAID","label":"テスト決済完了"},"refundStatus":{"code":"NOT_APPLICABLE","label":"返金・取消対象外"},"refundAmount":null}
   },
   "error": null

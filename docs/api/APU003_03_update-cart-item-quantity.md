@@ -123,7 +123,7 @@ userId、cartId、productId、価格、在庫数は送信しない。商品は�
 | --- | --- |
 | メソッド | updateMemberCartItemQuantity |
 | 解析 | **共通機能使用：COM001_10 HTTP共通受付・JSON構文解析** |
-| Command | cartItemId文字列、JSONツリー、クエリ、actorType=USER、共通認証済みsub |
+| Command | cartItemId文字列、厳密変換済みの専用DTO、クエリ、actorType=USER、共通認証済みsub |
 | 呼出 | UpdateCartItemQuantityBusiness.execute(command) |
 
 共通認証・ヘッダーの内部処理は親Controller／共通受付に委ねる。個別Controllerで入力検証・Long変換・DB更新を実行しない。
@@ -209,7 +209,7 @@ Content-Type: application/json
 | --- | --- |
 | メソッド | updateGuestCartItemQuantity |
 | 解析 | **共通機能使用：COM001_10 HTTP共通受付・JSON構文解析** |
-| Command | cartItemId文字列、JSONツリー、クエリ、actorType=GUEST、Cookie値・同名Cookie件数 |
+| Command | cartItemId文字列、厳密変換済みの専用DTO、クエリ、actorType=GUEST、Cookie値・同名Cookie件数 |
 | 呼出 | UpdateCartItemQuantityBusiness.execute(command) |
 
 会員検索・Cognito属性取得は実行しない。ユーザーが認証済みでも、この経路ではCookieのゲストカートだけを対象にする。
@@ -256,6 +256,8 @@ bodyのuserIdやcartId等を受け付けない。ヘッダー・Originの共通�
 - 成功再送でCookie再同期が必要な場合は、現在も同じACTIVEゲストカートであることを確認し、現在のDB期限までの残時間だけ設定する。過去の記録を基に「今から7日」にしない。
 - Cookie設定失敗・応答消失でも、確定済み更新を補償削除しない。同一キーで結果を確認する。
 
+共通機能使用：COM001_10。JSON構造・未知項目・型不一致は受付でINVALID_REQUEST。BusinessがDTOの必須・値域・相関を検証し、違反はVALIDATION_ERROR。
+
 ## 4. 数量更新処理（両経路のBusiness内）
 
 4.1から4.9／4.10までを1つのREAD COMMITTEDトランザクションで実行する。
@@ -291,7 +293,8 @@ RETURNING operation_id;
 | --- | --- |
 | INSERT 1件 | 新規操作。4.3へ |
 | INSERT 0件 | 別SQLで同じoperation_idの記録を取得 |
-| actor_type／actor_id／operation_type／request_hashのどれか不一致 | IDEMPOTENCY_KEY_REUSED。過去結果は開示しない |
+| 他主体の操作ID | RESOURCE_NOT_FOUND。結果・存在を開示しない |
+| 同一主体で対象・種別・正規化内容が不一致 | IDEMPOTENCY_KEY_REUSED。更新しない |
 | 全項目一致 | 4.2へ |
 | 競合待ちタイムアウト・DB例外 | ロールバックして5章へ |
 
@@ -490,7 +493,8 @@ FAILED記録をコミット後に業務例外へ変換する。予期しない�
 | 販売不可・売り切れ | BUSINESS_RULE_VIOLATION | この商品は現在購入できません。カートから削除してください。 |
 | 統合未完了 | BUSINESS_RULE_VIOLATION | カート情報の引き継ぎが完了していません。再試行してください。 |
 | ゲスト失効・状態変化 | BUSINESS_RULE_VIOLATION | カート情報が変更されています。最新の内容をご確認ください。 |
-| 同一キーで別内容・別主体 | IDEMPOTENCY_KEY_REUSED | 同じ操作識別子で異なるリクエストが送信されました。 |
+| 他主体の操作ID | RESOURCE_NOT_FOUND | 指定された情報を表示できません。 |
+| 同一主体で対象・種別・正規化内容が不一致 | IDEMPOTENCY_KEY_REUSED | 同じ操作識別子で異なるリクエストが送信されました。 |
 | Origin等の共通検証NG | CSRF_VALIDATION_FAILED | 操作を確認できませんでした。画面を再読み込みしてください。 |
 | DB接続障害・タイムアウト・デッドロック | SERVICE_UNAVAILABLE | 処理を完了できませんでした。時間をおいて再試行してください。 |
 | 不正DB値・SQL不備・計算例外 | INTERNAL_ERROR | 処理を完了できませんでした。 |
