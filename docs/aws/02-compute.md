@@ -20,9 +20,9 @@
 
 ## ALB・Target Group
 
-Internet-facing ALBをPublic 2AZに配置。443 listenerは東京リージョンのACM証明書を使用。CloudFront→ALBはHTTPS-only。標準AWS ALB DNS名ではなく証明書と一致するorigin用ドメインを使う（05参照）。
+internal ALBをApp-A/Bに配置。API Gateway HTTP APIのVPC Linkをlistener ARNに接続する。link SGからのみTCP80を許可する。
 
-Target typeはIP、HTTP8080でECSに転送。VPC内ALB→ECSは初期案ではHTTP。暗号化を全区間必須にする場合は別途変更する。許可するorigin header一致時のみforwardし、default actionは403。
+Target typeはIP。内部ALBからタスクのHTTP 8080へ転送する。業務ルートを公開ALBで迂回できる設定を設けない。
 
 | ヘルスチェック | 設定案 |
 |---|---|
@@ -36,7 +36,7 @@ Target typeはIP、HTTP8080でECSに転送。VPC内ALB→ECSは初期案ではHT
 ## IAMの分離
 
 - Task execution role：ECR pull、ログ初期化、起動時に注入するSecret参照。
-- Task role：アプリから必要なCognito API、SQS SendMessage、商品画像S3操作等。操作方式に応じ必要な権限だけを許可。
+- Task role：注文通知Topicのsns:Publish、商品画像S3操作など実行する業務だけ。SQS投入はSNS購読で行う。
 - Secretsを実行時にSDKで取得する場合はTask role側、ECS secret injectionの場合はexecution role側に必要権限を設定する。
 
 ## ECR・踏み台
@@ -49,7 +49,7 @@ ECRはタグ上書き防止、push時スキャン、古い未使用イメージ�
 
 CDKはECR/ECS等の枠を作成。アプリビルド・ECR pushは別手順。初回は空のECRに存在しないtagを指定してServiceを起動しない。リポジトリ作成→イメージpush→Service作成の順とする。
 
-検証：正常起動、ALB healthy、失敗イメージのrollback、タスク再起動後もPostgreSQLセッションが利用可能、ログにパスワード・Cookie・Cognitoトークンが含まれないこと。
+検証：ALB health、ローリング復旧、再起動後も同一JWTで権限確認できること。DBセッションの作成・参照なし。
 
 ## 参考
 
