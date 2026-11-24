@@ -1,0 +1,69 @@
+# ecs/ は Spring Boot、iac/ は Java CDK。各 Gradle プロジェクトは独立。
+# DBのみ: docker compose up -d db   /   IaCのみ: docker compose run --rm iac cdk synth
+name: cloudcart
+
+services:
+  app:
+    image: amazoncorretto:21
+    working_dir: /workspace/app
+    command: ["sh", "./gradlew", "--no-daemon", "bootRun"]
+    init: true
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/cloudcart
+      SPRING_DATASOURCE_USERNAME: cloudcart
+      SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
+      GRADLE_USER_HOME: /var/cache/gradle
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - type: bind
+        source: ./ecs
+        target: /workspace/app
+        bind:
+          create_host_path: false
+      - gradle_cache:/var/cache/gradle
+      - app_gradle:/workspace/app/.gradle
+      - app_build:/workspace/app/build
+
+  db:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_DB: cloudcart
+      POSTGRES_USER: cloudcart
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # 5432はホストに公開しない。SQL確認: docker compose exec db psql -U cloudcart -d cloudcart
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  iac:
+    profiles: ["iac"]
+    build:
+      context: ./iac
+      args:
+        IAC_UID: "${LOCAL_UID:-1000}"
+        IAC_GID: "${LOCAL_GID:-1000}"
+    init: true
+    working_dir: /workspace/iac
+    environment:
+      AWS_REGION: "${AWS_REGION:-ap-northeast-1}"
+      GRADLE_USER_HOME: /home/cdk/.gradle
+    volumes:
+      - ./iac:/workspace/iac
+      - iac_gradle:/home/cdk/.gradle
+    command: ["cdk", "--version"]
+
+volumes:
+  iac_gradle:
+  postgres_data:
+  gradle_cache:
+  app_gradle:
+  app_build:
