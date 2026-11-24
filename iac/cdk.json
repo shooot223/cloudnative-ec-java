@@ -1,0 +1,3 @@
+{
+  "app": "sh ./gradlew --no-daemon --console=plain -q run"
+}

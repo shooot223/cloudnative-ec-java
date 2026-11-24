@@ -1,0 +1,5 @@
+plugins { id 'application' }
+repositories { mavenCentral() }
+java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+dependencies { implementation 'software.amazon.awscdk:aws-cdk-lib:2.278.0' }
+application { mainClass = 'com.cloudcart.infra.CloudCartApp' }
