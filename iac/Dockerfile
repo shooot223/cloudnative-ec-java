@@ -3,6 +3,11 @@ ARG CDK_CLI_VERSION=2.1149.0
 RUN npm install --global --no-audit --no-fund aws-cdk@${CDK_CLI_VERSION}
 
 FROM amazoncorretto:21-al2023-jdk
+RUN dnf install -y findutils /usr/bin/flock /usr/bin/which wget tar gzip procps-ng \
+    && command -v xargs \
+    && command -v flock \
+    && command -v which \
+    && dnf clean all
 COPY --from=cli /usr/local/bin/node /usr/local/bin/node
 COPY --from=cli /usr/local/lib/node_modules/aws-cdk /opt/aws-cdk
 ARG IAC_UID=1000

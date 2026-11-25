@@ -1,0 +1,74 @@
+name: CD - IaC
+
+# PR中ではなく、mainに反映されたコミットを対象にする。
+on:
+  push:
+    branches: [main]
+    paths: ['iac/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-iac-main-ap-northeast-1
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Repository variable。初回import完了までは未設定のままにする。
+    if: ${{ vars.IAC_DEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ap-northeast-1
+      STACK_NAME: CloudCartStorageStack
+      WEB_BUCKET_NAME: cloudcart-lab.click
+      EXPECTED_ACCOUNT_ID: '294145424898'
+    defaults:
+      run:
+        working-directory: iac
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # PRの有無にかかわらず、実際に配布するmainのコミットを検証する。
+      - name: Check and synthesize main
+        run: |
+          sh ./gradlew --no-daemon check
+          npx --yes aws-cdk@2.1149.0 synth "$STACK_NAME" --no-lookups --output cdk.out
+
+      - name: Authenticate to AWS using GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_IAC_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: ${{ env.EXPECTED_ACCOUNT_ID }}
+          role-session-name: cloudcart-iac-${{ github.run_id }}
+
+      # 変数の誤設定だけではデプロイされないように、AWSの実際の管理状態を確認する。
+      - name: Verify existing bucket is already managed by this stack
+        run: |
+          set -euo pipefail
+          managed_count="$(aws cloudformation list-stack-resources \
+            --stack-name "$STACK_NAME" \
+            --query "length(StackResourceSummaries[?ResourceType=='AWS::S3::Bucket' && PhysicalResourceId=='${WEB_BUCKET_NAME}' && (ResourceStatus=='IMPORT_COMPLETE' || ResourceStatus=='UPDATE_COMPLETE' || ResourceStatus=='CREATE_COMPLETE')])" \
+            --output json)"
+          if [[ "$managed_count" != "1" ]]; then
+            echo "::error::The existing web bucket is not managed by the target stack. Complete the one-time import first."
+            exit 1
+          fi
+
+      # 上のステップで生成したものをデプロイする。初回importはここでは行わない。
+      - name: Deploy verified assembly
+        run: npx --yes aws-cdk@2.1149.0 deploy "$STACK_NAME" --app cdk.out --require-approval never

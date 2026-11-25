@@ -45,6 +45,7 @@ services:
       start_period: 10s
 
   iac:
+    user: "cdk"
     profiles: ["iac"]
     build:
       context: ./iac
@@ -59,7 +60,7 @@ services:
     volumes:
       - ./iac:/workspace/iac
       - iac_gradle:/home/cdk/.gradle
-    command: ["cdk", "--version"]
+    command: ["sleep", "infinity"]
 
 volumes:
   iac_gradle:

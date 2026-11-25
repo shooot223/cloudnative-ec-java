@@ -1,0 +1,40 @@
+name: CI - IaC
+
+# branches はPRの向き先。ワークフローだけの変更では起動しない。
+on:
+  pull_request:
+    branches: [develop, main]
+    paths: ['iac/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-iac-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: iac
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Gradle checks
+        run: sh ./gradlew --no-daemon check
+
+      # AWSへのログイン、リソースの検索、デプロイは行わない。
+      - name: Synthesize CloudFormation templates
+        run: npx --yes aws-cdk@2.1149.0 synth --no-lookups
